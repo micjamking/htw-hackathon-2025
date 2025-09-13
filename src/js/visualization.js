@@ -7,7 +7,8 @@ export class Visualization {
         this.camera = null;
         this.renderer = null;
         this.globe = null;
-        this.dataPoints = [];
+        this.dataPoints = new THREE.Group();
+        this.connections = new THREE.Group();
         this.currentData = [];
         this.isAnimating = false;
         this.mousePosition = new THREE.Vector2();
@@ -117,8 +118,16 @@ export class Visualization {
         );
         this.camera.position.set(0, 0, this.cameraDistance);
 
-        // Create renderer with performance optimizations
+        // Get existing canvas element
+        const canvas = document.getElementById('three-canvas');
+        if (!canvas) {
+            console.error('Canvas element #three-canvas not found');
+            return;
+        }
+
+        // Create renderer with performance optimizations using existing canvas
         this.renderer = new THREE.WebGLRenderer({ 
+            canvas: canvas,
             antialias: window.devicePixelRatio <= 1, // Disable antialiasing on high-DPI for performance
             powerPreference: 'high-performance'
         });
@@ -127,14 +136,16 @@ export class Visualization {
         
         // Enable frustum culling for performance
         this.renderer.frustumCulled = true;
-        
-        this.container.appendChild(this.renderer.domElement);
 
         // Create globe with HTW branding
         this.createGlobe();
         
         // Add optimized lighting
         this.setupLighting();
+        
+        // Add data point and connection groups to scene
+        this.scene.add(this.dataPoints);
+        this.scene.add(this.connections);
         
         // Setup controls
         this.setupControls();
@@ -259,6 +270,15 @@ export class Visualization {
         this.scene.add(stars);
     }
 
+    setupControls() {
+        // Setup event listeners for interaction
+        this.setupEventListeners();
+        
+        // Initialize camera controls (basic mouse tracking)
+        this.cameraTarget = new THREE.Vector3(0, 0, 0);
+        this.cameraPosition = new THREE.Vector3(0, 0, this.cameraDistance);
+    }
+
     createDataVisualization(data, cameraDistance = 100) {
         console.log(`Creating visualization for ${data.length} data points (camera distance: ${cameraDistance})`);
         
@@ -307,12 +327,12 @@ export class Visualization {
             }
 
             objectsToAdd.push(pointMesh);
-            this.dataPoints.push(pointMesh);
+            this.dataPoints.add(pointMesh);
             processedCount++;
         });
 
-        // Batch add to scene for performance
-        objectsToAdd.forEach(obj => this.scene.add(obj));
+        // Batch add to scene for performance - dataPoints group is already in scene
+        // objectsToAdd.forEach(obj => this.scene.add(obj));
         
         console.log(`Visualization created: ${processedCount} objects rendered`);
         this.updatePerformanceStats();
@@ -369,10 +389,10 @@ export class Visualization {
 
     // Clear existing data points with performance optimization
     clearDataPoints() {
-        // Batch removal for performance
-        const objectsToRemove = [...this.dataPoints];
+        // Remove all children from the dataPoints group
+        const objectsToRemove = [...this.dataPoints.children];
         objectsToRemove.forEach(point => {
-            this.scene.remove(point);
+            this.dataPoints.remove(point);
             // Dispose geometry and material if they're unique (not pooled)
             if (point.geometry && !this.geometryPool.has(point.geometry)) {
                 point.geometry.dispose();
@@ -382,7 +402,8 @@ export class Visualization {
             }
         });
         
-        this.dataPoints = [];
+        // Clear the group (should already be empty, but just to be sure)
+        this.dataPoints.clear();
         
         // Force garbage collection hint
         if (window.gc) {
@@ -416,7 +437,7 @@ export class Visualization {
         const newDataIds = new Set(newData.map(d => d.id));
         
         // Hide points not in new data
-        this.dataPoints.forEach(point => {
+        this.dataPoints.children.forEach(point => {
             const shouldShow = newDataIds.has(point.userData.id);
             point.visible = shouldShow;
             
@@ -440,7 +461,7 @@ export class Visualization {
             this.performanceStats.fps = Math.round(this.performanceStats.frameCount / (deltaTime / 1000));
             this.performanceStats.frameCount = 0;
             this.performanceStats.lastTime = now;
-            this.performanceStats.drawCalls = this.dataPoints.length;
+            this.performanceStats.drawCalls = this.dataPoints.children.length;
         }
     }
 
@@ -449,7 +470,7 @@ export class Visualization {
         return {
             fps: this.performanceStats.fps,
             drawCalls: this.performanceStats.drawCalls,
-            renderedObjects: this.dataPoints.length,
+            renderedObjects: this.dataPoints.children.length,
             memoryUsage: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + 'MB' : 'N/A'
         };
     }
@@ -465,11 +486,11 @@ export class Visualization {
 
     onMouseMove(event) {
         const rect = this.container.getBoundingClientRect();
-        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        this.mousePosition.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mousePosition.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         
         // Check for intersections
-        this.raycaster.setFromCamera(this.mouse, this.camera);
+        this.raycaster.setFromCamera(this.mousePosition, this.camera);
         const intersects = this.raycaster.intersectObjects(this.dataPoints.children);
         
         // Reset previous hover
@@ -571,13 +592,12 @@ export class Visualization {
 
     // Public methods for external control
     updateData(newData) {
-        // Clear existing visualization
-        this.dataPoints.clear();
-        this.connections.clear();
+        // Clear existing visualization using the performance-optimized method
+        this.clearDataPoints();
         
         // Update data and recreate visualization
-        this.data = newData;
-        this.createDataVisualization();
+        this.currentData = newData;
+        this.createDataVisualization(newData);
     }
 
     resetCamera() {

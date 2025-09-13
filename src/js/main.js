@@ -46,12 +46,17 @@ class HTWVisualizationApp {
 
             // Initialize visualization
             console.log('Setting up 3D visualization...');
-            const canvas = document.getElementById('three-canvas');
-            if (!canvas) {
-                throw new Error('Canvas element not found');
+            const container = document.getElementById('visualization-container');
+            if (!container) {
+                throw new Error('Visualization container element not found');
             }
 
-            this.visualization = new Visualization(canvas, data);
+            this.visualization = new Visualization(container);
+            await this.visualization.init();
+            
+            // Load data into visualization
+            console.log('Loading data into visualization...');
+            await this.visualization.updateData(data);
             Utils.updateLoadingProgress(75);
 
             // Initialize controls
