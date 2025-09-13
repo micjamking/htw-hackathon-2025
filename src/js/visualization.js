@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 export class Visualization {
     constructor(container) {
@@ -72,34 +73,35 @@ export class Visualization {
 
     // Initialize material and geometry pools for performance
     initializeMaterialPool() {
-        // Create shared geometries
-        this.geometryPool.set('sphere', new THREE.SphereGeometry(0.5, 8, 6));
-        this.geometryPool.set('cluster', new THREE.SphereGeometry(1, 12, 8));
-        this.geometryPool.set('large-cluster', new THREE.SphereGeometry(1.5, 16, 12));
+        // Create reusable geometries for performance - MUCH LARGER for visibility
+        this.geometryPool.set('sphere', new THREE.SphereGeometry(5, 8, 6));         // Increased from 2 to 5
+        this.geometryPool.set('cluster', new THREE.SphereGeometry(7, 12, 8));       // Increased from 3 to 7
+        this.geometryPool.set('large-cluster', new THREE.SphereGeometry(10, 16, 12)); // Increased from 4 to 10
 
         // Create materials for each industry
         Object.entries(this.industryColors).forEach(([industry, color]) => {
-            // Standard material for individual points
+            // Standard material for individual points - BRIGHT AND OPAQUE
             this.materialPool.set(`point-${industry}`, new THREE.MeshBasicMaterial({
                 color: color,
-                transparent: true,
-                opacity: 0.8
+                transparent: false // Make fully opaque for better visibility
             }));
 
-            // Cluster material with glow effect
+            // Cluster material with glow effect - BRIGHT AND OPAQUE  
             this.materialPool.set(`cluster-${industry}`, new THREE.MeshBasicMaterial({
                 color: color,
-                transparent: true,
-                opacity: 0.9
+                transparent: false // Make fully opaque for better visibility
             }));
 
             // Hover material
             this.materialPool.set(`hover-${industry}`, new THREE.MeshBasicMaterial({
                 color: this.brandColors.white,
-                transparent: true,
-                opacity: 1.0
+                transparent: false
             }));
         });
+        
+        // Add fallback materials for debugging
+        this.materialPool.set('point-Other', new THREE.MeshBasicMaterial({ color: 0x00ff00 })); // Bright green
+        this.materialPool.set('cluster-Mixed', new THREE.MeshBasicMaterial({ color: 0xff0000 })); // Bright red
     }
 
     init() {
@@ -116,7 +118,9 @@ export class Visualization {
             0.1, 
             1000
         );
-        this.camera.position.set(0, 0, this.cameraDistance);
+        // Position camera to view Hawaii region where data points are clustered
+        this.camera.position.set(-80, 40, 80); // Angled toward Hawaii coordinates
+        this.camera.lookAt(0, 0, 0); // Still looking at globe center
 
         // Get existing canvas element
         const canvas = document.getElementById('three-canvas');
@@ -271,6 +275,21 @@ export class Visualization {
     }
 
     setupControls() {
+        // Setup OrbitControls for interactive camera movement
+        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+        
+        // Configure controls for smooth interaction
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.05;
+        this.controls.enableZoom = true;
+        this.controls.enableRotate = true;
+        this.controls.enablePan = true;
+        
+        // Set limits for better UX
+        this.controls.minDistance = 60;  // Prevent zooming too close
+        this.controls.maxDistance = 300; // Prevent zooming too far
+        this.controls.maxPolarAngle = Math.PI; // Allow full vertical rotation
+        
         // Setup event listeners for interaction
         this.setupEventListeners();
         
@@ -280,7 +299,7 @@ export class Visualization {
     }
 
     createDataVisualization(data, cameraDistance = 100) {
-        console.log(`Creating visualization for ${data.length} data points (camera distance: ${cameraDistance})`);
+        console.log(`Creating visualization for ${data.length} data points`);
         
         // Clear existing data points
         this.clearDataPoints();
@@ -289,21 +308,73 @@ export class Visualization {
         this.cameraDistance = cameraDistance;
         
         // Performance optimization: batch create objects
-        const objectsToAdd = [];
         let processedCount = 0;
+        let skippedCount = 0;
         
         data.forEach((dataPoint, index) => {
-            if (!dataPoint.coordinates) return;
+            if (!dataPoint.coordinates) {
+                console.warn(`Data point ${index} missing coordinates:`, dataPoint);
+                skippedCount++;
+                return;
+            }
             
             // Convert lat/lng to 3D coordinates
             const position = this.latLngToVector3(
                 dataPoint.coordinates.lat, 
                 dataPoint.coordinates.lng, 
-                52 // Globe radius + small offset
+                60 // Globe radius (50) + larger offset (10) for clear visibility
             );
+
+            // Add small random offset for clustered points to prevent overlap
+            if (dataPoint.isCluster && dataPoint.memberCount > 1) {
+                const offsetRadius = Math.min(dataPoint.memberCount * 0.1, 3); // Max 3 unit spread
+                position.x += (Math.random() - 0.5) * offsetRadius;
+                position.y += (Math.random() - 0.5) * offsetRadius; 
+                position.z += (Math.random() - 0.5) * offsetRadius;
+            }
+
+            // Log coordinate details for first few points
+            if (index < 3) {
+                console.log(`Data point ${index}: lat=${dataPoint.coordinates.lat.toFixed(2)}, lng=${dataPoint.coordinates.lng.toFixed(2)}`);
+            }
 
             // Choose geometry and material based on cluster size and distance
             const { geometry, material, scale } = this.getOptimizedRenderingParams(dataPoint, cameraDistance);
+            
+            // Debug logging for first few points
+            if (index < 3) {
+                console.log(`Data point ${index}:`, {
+                    coordinates: dataPoint.coordinates,
+                    position: position,
+                    scale: scale,
+                    memberCount: dataPoint.memberCount,
+                    geometry: geometry ? 'Found' : 'MISSING',
+                    material: material ? 'Found' : 'MISSING',
+                    geometryRadius: geometry ? geometry.parameters?.radius : 'N/A',
+                    materialColor: material ? material.color : 'N/A'
+                });
+            }
+            
+            if (!geometry || !material) {
+                console.error(`❌ Missing geometry or material for data point ${index}:`, { 
+                    geometry: geometry ? 'Found' : 'MISSING', 
+                    material: material ? 'Found' : 'MISSING',
+                    industry: dataPoint.industryCategory,
+                    memberCount: dataPoint.memberCount 
+                });
+                skippedCount++;
+                return;
+            }
+            
+            // DEBUG: Log material details for first few points
+            if (index < 3) {
+                console.log(`Data point ${index} material:`, {
+                    color: material.color,
+                    transparent: material.transparent,
+                    opacity: material.opacity,
+                    visible: material.visible
+                });
+            }
             
             // Create mesh with optimized parameters
             const pointMesh = new THREE.Mesh(geometry, material);
@@ -326,15 +397,50 @@ export class Visualization {
                 pointMesh.userData.originalScale = scale;
             }
 
-            objectsToAdd.push(pointMesh);
-            this.dataPoints.add(pointMesh);
+            // Add directly to scene (dataPoints group had visibility issues)
+            this.scene.add(pointMesh);
             processedCount++;
         });
 
         // Batch add to scene for performance - dataPoints group is already in scene
         // objectsToAdd.forEach(obj => this.scene.add(obj));
         
-        console.log(`Visualization created: ${processedCount} objects rendered`);
+        console.log(`Visualization created: ${processedCount} objects rendered, ${skippedCount} skipped`);
+        console.log(`DataPoints group now contains: ${this.dataPoints.children.length} children`);
+        console.log(`Scene contains: ${this.scene.children.length} total objects`);
+        console.log(`Camera position:`, this.camera.position.x.toFixed(2), this.camera.position.y.toFixed(2), this.camera.position.z.toFixed(2));
+        console.log(`Camera looking at:`, this.camera.target ? 'target set' : 'default (0,0,0)');
+        console.log(`Globe position:`, this.globe ? this.globe.position : 'Globe not found');
+        
+        // Now that data points are added directly to scene, they should be visible!
+        
+        // DEBUG: If no data points were created, add manual test points
+        if (this.dataPoints.children.length === 0) {
+            console.log('🔧 NO DATA POINTS CREATED - Adding manual test points');
+            this.addManualTestPoints();
+        }
+        
+        // Debug: log positions of first few data points
+        if (this.dataPoints.children.length > 0) {
+            this.dataPoints.children.slice(0, 3).forEach((child, index) => {
+                console.log(`Data point ${index} final position:`, child.position.x.toFixed(2), child.position.y.toFixed(2), child.position.z.toFixed(2), 
+                           'scale:', child.scale.x.toFixed(2), 'visible:', child.visible);
+            });
+            
+            // DEBUG: Check dataPoints group properties
+            console.log('🔍 DataPoints group analysis:', {
+                children: this.dataPoints.children.length,
+                position: `(${this.dataPoints.position.x}, ${this.dataPoints.position.y}, ${this.dataPoints.position.z})`,
+                rotation: `(${this.dataPoints.rotation.x.toFixed(2)}, ${this.dataPoints.rotation.y.toFixed(2)}, ${this.dataPoints.rotation.z.toFixed(2)})`,
+                scale: `(${this.dataPoints.scale.x}, ${this.dataPoints.scale.y}, ${this.dataPoints.scale.z})`,
+                visible: this.dataPoints.visible,
+                parent: this.dataPoints.parent ? 'Has parent' : 'NO PARENT!',
+                matrixWorld: this.dataPoints.matrixWorldNeedsUpdate
+            });
+        } else {
+            console.error('❌ NO DATA POINTS ADDED TO SCENE!');
+        }
+        
         this.updatePerformanceStats();
     }
 
@@ -385,6 +491,35 @@ export class Visualization {
         const y = (radius * Math.cos(phi));
 
         return new THREE.Vector3(x, y, z);
+    }
+
+    // DEBUG: Add manual test points to isolate data loading issues
+    addManualTestPoints() {
+        console.log('Adding manual test data points...');
+        
+        const testGeometry = new THREE.SphereGeometry(8, 16, 16);
+        const testMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Bright green
+        
+        // Create test points at known geographic locations
+        const testLocations = [
+            { lat: 40.7128, lng: -74.0060, name: "New York" },      // New York City
+            { lat: 51.5074, lng: -0.1278, name: "London" },        // London
+            { lat: 35.6762, lng: 139.6503, name: "Tokyo" },        // Tokyo
+            { lat: -33.8688, lng: 151.2093, name: "Sydney" },      // Sydney
+            { lat: 37.7749, lng: -122.4194, name: "San Francisco" } // San Francisco
+        ];
+        
+        testLocations.forEach((location, index) => {
+            const position = this.latLngToVector3(location.lat, location.lng, 65);
+            const testPoint = new THREE.Mesh(testGeometry, testMaterial);
+            testPoint.position.copy(position);
+            testPoint.userData = { name: location.name, isTest: true };
+            
+            this.dataPoints.add(testPoint);
+            console.log(`Manual test point ${index} (${location.name}) added at:`, position);
+        });
+        
+        console.log(`Manual test points added. DataPoints group now has: ${this.dataPoints.children.length} children`);
     }
 
     // Clear existing data points with performance optimization
@@ -575,6 +710,11 @@ export class Visualization {
     animate() {
         requestAnimationFrame(() => this.animate());
         
+        // Update controls for smooth interaction
+        if (this.controls) {
+            this.controls.update();
+        }
+        
         // Animate data points with subtle floating motion
         const time = Date.now() * 0.001;
         this.dataPoints.children.forEach((mesh, index) => {
@@ -583,9 +723,11 @@ export class Visualization {
             mesh.rotation.y += 0.005;
         });
         
-        // Rotate the entire visualization slowly
-        this.dataPoints.rotation.y += 0.001;
-        this.connections.rotation.y += 0.001;
+        // Rotate the entire visualization slowly (only if auto-rotate is enabled)
+        if (this.autoRotate !== false) {
+            this.dataPoints.rotation.y += 0.001;
+            this.connections.rotation.y += 0.001;
+        }
         
         this.renderer.render(this.scene, this.camera);
     }
