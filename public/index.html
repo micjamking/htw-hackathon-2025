@@ -28,50 +28,73 @@
             <canvas id="three-canvas"></canvas>
         </div>
 
-        <!-- UI Controls -->
-        <div id="ui-controls">
-            <div class="control-panel">
-                <h3>Visualization Controls</h3>
+        <!-- UI Controls Sidebar -->
+        <div class="controls-toggle" id="controls-toggle">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </div>
+        
+        <div class="controls-sidebar" id="controls-sidebar">
+            <div class="filter-section">
+                <h3 class="filter-title">Visualization Controls</h3>
                 
                 <!-- Filter controls -->
-                <div class="filter-section">
-                    <h4>Filters</h4>
-                    <div class="filter-group">
-                        <label for="industry-filter">Industry:</label>
-                        <select id="industry-filter" multiple>
-                            <option value="all">All Industries</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="location-filter">Location:</label>
-                        <select id="location-filter" multiple>
-                            <option value="all">All Locations</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="role-filter">Role Type:</label>
-                        <select id="role-filter" multiple>
-                            <option value="all">All Roles</option>
-                        </select>
-                    </div>
+                <div class="filter-group">
+                    <label class="filter-label" for="industry-filter">Industry:</label>
+                    <select id="industry-filter" class="filter-select" multiple>
+                        <option value="all">All Industries</option>
+                    </select>
                 </div>
-
-                <!-- View controls -->
-                <div class="view-section">
-                    <h4>View</h4>
-                    <button id="reset-camera">Reset Camera</button>
-                    <button id="auto-rotate" class="toggle-btn">Auto Rotate</button>
+                
+                <div class="filter-group">
+                    <label class="filter-label" for="location-filter">Location:</label>
+                    <select id="location-filter" class="filter-select" multiple>
+                        <option value="all">All Locations</option>
+                    </select>
                 </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label" for="role-filter">Role Type:</label>
+                    <select id="role-filter" class="filter-select" multiple>
+                        <option value="all">All Roles</option>
+                    </select>
+                </div>
+            </div>
 
-                <!-- Information panel -->
-                <div class="info-section">
-                    <h4>Statistics</h4>
-                    <div id="stats-display">
-                        <p>Total Members: <span id="total-count">0</span></p>
-                        <p>Visible: <span id="visible-count">0</span></p>
-                        <p>Selected: <span id="selected-info">None</span></p>
+            <!-- View controls -->
+            <div class="filter-section">
+                <h3 class="filter-title">View</h3>
+                <div class="action-buttons">
+                    <button id="reset-camera" class="action-btn">Reset Camera</button>
+                    <button id="auto-rotate" class="action-btn toggle-btn">Auto Rotate</button>
+                </div>
+            </div>
+
+            <!-- Industry Legend -->
+            <div class="filter-section">
+                <h3 class="filter-title">Industry Legend</h3>
+                <div class="industry-legend" id="industry-legend">
+                    <!-- Dynamic legend items will be added here -->
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="filter-section">
+                <h3 class="filter-title">Statistics</h3>
+                <div class="stats-panel">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-value" id="total-count">2340</span>
+                            <span class="stat-description">Total Members</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="visible-count">2340</span>
+                            <span class="stat-description">Visible</span>
+                        </div>
+                    </div>
+                    <div id="selected-info" class="stat-description" style="text-align: center; margin-top: 1rem;">
+                        None selected
                     </div>
                 </div>
             </div>

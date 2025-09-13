@@ -90,6 +90,9 @@ class HTWVisualizationApp {
     }
 
     setupGlobalEventListeners() {
+        // Setup controls sidebar toggle
+        this.setupControlsSidebar();
+        
         // Handle window visibility changes
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
@@ -123,6 +126,51 @@ class HTWVisualizationApp {
         this.setupPerformanceMonitoring();
     }
 
+    setupControlsSidebar() {
+        const toggle = document.getElementById('controls-toggle');
+        const sidebar = document.getElementById('controls-sidebar');
+        
+        if (toggle && sidebar) {
+            toggle.addEventListener('click', () => {
+                const isOpen = sidebar.classList.contains('open');
+                
+                if (isOpen) {
+                    sidebar.classList.remove('open');
+                    toggle.classList.remove('open');
+                } else {
+                    sidebar.classList.add('open');
+                    toggle.classList.add('open');
+                }
+                
+                // Update toggle icon
+                const icon = toggle.querySelector('svg path');
+                if (icon) {
+                    if (isOpen) {
+                        icon.setAttribute('d', 'M3 12h18M3 6h18M3 18h18');
+                    } else {
+                        icon.setAttribute('d', 'M18 6L6 18M6 6l12 12');
+                    }
+                }
+            });
+            
+            // Close sidebar when clicking outside (on mobile)
+            document.addEventListener('click', (event) => {
+                if (window.innerWidth <= 768) {
+                    if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
+                        sidebar.classList.remove('open');
+                        toggle.classList.remove('open');
+                        
+                        // Reset icon
+                        const icon = toggle.querySelector('svg path');
+                        if (icon) {
+                            icon.setAttribute('d', 'M3 12h18M3 6h18M3 18h18');
+                        }
+                    }
+                }
+            });
+        }
+    }
+
     handleKeyboardShortcuts(event) {
         // Prevent shortcuts when typing in inputs
         if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT' || event.target.tagName === 'TEXTAREA') {
@@ -146,6 +194,14 @@ class HTWVisualizationApp {
                 }
                 break;
                 
+            case 't':
+                // Toggle controls sidebar
+                const toggle = document.getElementById('controls-toggle');
+                if (toggle) {
+                    toggle.click();
+                }
+                break;
+                
             case 'e':
                 // Export data
                 if (event.ctrlKey || event.metaKey) {
@@ -160,8 +216,17 @@ class HTWVisualizationApp {
             case 'escape':
                 // Close modals or reset selection
                 const modal = document.getElementById('detail-modal');
-                if (modal.style.display === 'block') {
+                if (modal && modal.style.display === 'block') {
                     this.controls.hideModal();
+                } else {
+                    // Close sidebar if open
+                    const sidebar = document.getElementById('controls-sidebar');
+                    if (sidebar && sidebar.classList.contains('open')) {
+                        const toggleBtn = document.getElementById('controls-toggle');
+                        if (toggleBtn) {
+                            toggleBtn.click();
+                        }
+                    }
                 }
                 break;
                 

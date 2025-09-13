@@ -73,35 +73,56 @@ export class Visualization {
 
     // Initialize material and geometry pools for performance
     initializeMaterialPool() {
-        // Create reusable geometries for performance - MUCH LARGER for visibility
-        this.geometryPool.set('sphere', new THREE.SphereGeometry(5, 8, 6));         // Increased from 2 to 5
-        this.geometryPool.set('cluster', new THREE.SphereGeometry(7, 12, 8));       // Increased from 3 to 7
-        this.geometryPool.set('large-cluster', new THREE.SphereGeometry(10, 16, 12)); // Increased from 4 to 10
+        // Create reusable geometries for performance - Refined for professional look
+        this.geometryPool.set('sphere', new THREE.SphereGeometry(1.5, 12, 8));         // Smaller, refined
+        this.geometryPool.set('cluster', new THREE.SphereGeometry(2.5, 16, 12));       // Medium cluster
+        this.geometryPool.set('large-cluster', new THREE.SphereGeometry(4, 20, 16));   // Large cluster
 
-        // Create materials for each industry
+        // Create materials for each industry with glow effects
         Object.entries(this.industryColors).forEach(([industry, color]) => {
-            // Standard material for individual points - BRIGHT AND OPAQUE
+            // Standard material for individual points with subtle glow
             this.materialPool.set(`point-${industry}`, new THREE.MeshBasicMaterial({
                 color: color,
-                transparent: false // Make fully opaque for better visibility
+                transparent: true,
+                opacity: 0.9,
+                emissive: color,
+                emissiveIntensity: 0.2
             }));
 
-            // Cluster material with glow effect - BRIGHT AND OPAQUE  
+            // Cluster material with enhanced glow effect
             this.materialPool.set(`cluster-${industry}`, new THREE.MeshBasicMaterial({
                 color: color,
-                transparent: false // Make fully opaque for better visibility
+                transparent: true,
+                opacity: 0.95,
+                emissive: color,
+                emissiveIntensity: 0.3
             }));
 
-            // Hover material
+            // Hover material with bright glow
             this.materialPool.set(`hover-${industry}`, new THREE.MeshBasicMaterial({
                 color: this.brandColors.white,
-                transparent: false
+                transparent: true,
+                opacity: 1.0,
+                emissive: this.brandColors.primary,
+                emissiveIntensity: 0.5
             }));
         });
         
-        // Add fallback materials for debugging
-        this.materialPool.set('point-Other', new THREE.MeshBasicMaterial({ color: 0x00ff00 })); // Bright green
-        this.materialPool.set('cluster-Mixed', new THREE.MeshBasicMaterial({ color: 0xff0000 })); // Bright red
+        // Add fallback materials with HTW branding
+        this.materialPool.set('point-Other', new THREE.MeshBasicMaterial({ 
+            color: this.brandColors.gray,
+            transparent: true,
+            opacity: 0.8,
+            emissive: this.brandColors.gray,
+            emissiveIntensity: 0.1
+        }));
+        this.materialPool.set('cluster-Mixed', new THREE.MeshBasicMaterial({ 
+            color: this.brandColors.primary,
+            transparent: true,
+            opacity: 0.9,
+            emissive: this.brandColors.primary,
+            emissiveIntensity: 0.2
+        }));
     }
 
     init() {
@@ -109,7 +130,9 @@ export class Visualization {
         
         // Create scene
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(this.brandColors.deepSea);
+        
+        // Set up space background with starfield
+        this.setupSpaceBackground();
 
         // Create camera with performance-optimized settings
         this.camera = new THREE.PerspectiveCamera(
@@ -133,7 +156,8 @@ export class Visualization {
         this.renderer = new THREE.WebGLRenderer({ 
             canvas: canvas,
             antialias: window.devicePixelRatio <= 1, // Disable antialiasing on high-DPI for performance
-            powerPreference: 'high-performance'
+            powerPreference: 'high-performance',
+            alpha: true
         });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
@@ -144,7 +168,7 @@ export class Visualization {
         // Create globe with HTW branding
         this.createGlobe();
         
-        // Add optimized lighting
+        // Add optimized lighting for space aesthetic
         this.setupLighting();
         
         // Add data point and connection groups to scene
@@ -160,41 +184,176 @@ export class Visualization {
         console.log('3D visualization initialized successfully');
     }
 
-    createGlobe() {
-        // Create Earth with HTW-branded styling
-        const globeGeometry = new THREE.SphereGeometry(50, 32, 32);
-        const globeMaterial = new THREE.MeshPhongMaterial({
-            color: this.brandColors.techBlue,
+    setupSpaceBackground() {
+        // Create deep space gradient background
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const context = canvas.getContext('2d');
+        
+        // Create radial gradient from deep space blue to black
+        const gradient = context.createRadialGradient(256, 256, 0, 256, 256, 256);
+        gradient.addColorStop(0, '#001122'); // Deep space blue (HTW deep sea)
+        gradient.addColorStop(0.7, '#000814'); // Darker blue
+        gradient.addColorStop(1, '#000000'); // Black space
+        
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, 512, 512);
+        
+        const backgroundTexture = new THREE.CanvasTexture(canvas);
+        this.scene.background = backgroundTexture;
+
+        // Create animated starfield
+        this.createStarfield();
+        
+        // Add nebula-like particle effects
+        this.createNebulaEffect();
+    }
+
+    createStarfield() {
+        // Create multiple layers of stars for depth
+        const starLayers = [
+            { count: 1500, size: 0.8, color: 0xFFFFFF, distance: 300 },
+            { count: 800, size: 1.2, color: 0x00D4FF, distance: 250 }, // HTW cyan stars
+            { count: 400, size: 1.5, color: 0xFFFFFF, distance: 200 }
+        ];
+
+        starLayers.forEach((layer, index) => {
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(layer.count * 3);
+            const colors = new Float32Array(layer.count * 3);
+            
+            const color = new THREE.Color(layer.color);
+            
+            for (let i = 0; i < layer.count; i++) {
+                const i3 = i * 3;
+                
+                // Create spherical distribution of stars
+                const phi = Math.random() * Math.PI * 2;
+                const theta = Math.random() * Math.PI;
+                const radius = layer.distance + (Math.random() - 0.5) * 50;
+                
+                positions[i3] = radius * Math.sin(theta) * Math.cos(phi);
+                positions[i3 + 1] = radius * Math.sin(theta) * Math.sin(phi);
+                positions[i3 + 2] = radius * Math.cos(theta);
+                
+                // Add some color variation
+                const colorVariation = 0.8 + Math.random() * 0.4;
+                colors[i3] = color.r * colorVariation;
+                colors[i3 + 1] = color.g * colorVariation;
+                colors[i3 + 2] = color.b * colorVariation;
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            const material = new THREE.PointsMaterial({
+                size: layer.size,
+                vertexColors: true,
+                transparent: true,
+                opacity: index === 1 ? 0.8 : 0.6, // HTW cyan stars slightly more prominent
+                blending: THREE.AdditiveBlending
+            });
+            
+            const stars = new THREE.Points(geometry, material);
+            stars.userData = { 
+                isStars: true, 
+                layer: index,
+                rotationSpeed: (index + 1) * 0.0002 // Different rotation speeds for parallax
+            };
+            this.scene.add(stars);
+        });
+    }
+
+    createNebulaEffect() {
+        // Create subtle nebula-like particle clouds
+        const nebulaGeometry = new THREE.BufferGeometry();
+        const nebulaCount = 200;
+        const positions = new Float32Array(nebulaCount * 3);
+        const colors = new Float32Array(nebulaCount * 3);
+        const sizes = new Float32Array(nebulaCount);
+        
+        for (let i = 0; i < nebulaCount; i++) {
+            const i3 = i * 3;
+            
+            // Create clustered nebula regions
+            const clusterX = (Math.random() - 0.5) * 400;
+            const clusterY = (Math.random() - 0.5) * 400;
+            const clusterZ = (Math.random() - 0.5) * 400;
+            
+            positions[i3] = clusterX;
+            positions[i3 + 1] = clusterY;
+            positions[i3 + 2] = clusterZ;
+            
+            // HTW brand colors for nebula
+            const htwCyan = new THREE.Color(this.brandColors.primary);
+            const htwBlue = new THREE.Color(this.brandColors.techBlue);
+            const color = Math.random() > 0.7 ? htwCyan : htwBlue;
+            
+            colors[i3] = color.r;
+            colors[i3 + 1] = color.g;
+            colors[i3 + 2] = color.b;
+            
+            sizes[i] = Math.random() * 8 + 2;
+        }
+        
+        nebulaGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        nebulaGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        nebulaGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+        
+        const nebulaMaterial = new THREE.PointsMaterial({
+            size: 5,
+            vertexColors: true,
             transparent: true,
-            opacity: 0.7,
-            wireframe: false
+            opacity: 0.1,
+            blending: THREE.AdditiveBlending,
+            sizeAttenuation: true
+        });
+        
+        const nebula = new THREE.Points(nebulaGeometry, nebulaMaterial);
+        nebula.userData = { isNebula: true, rotationSpeed: 0.0001 };
+        this.scene.add(nebula);
+    }
+
+    createGlobe() {
+        // Create Earth with HTW-branded styling - more refined
+        const globeGeometry = new THREE.SphereGeometry(50, 64, 64); // Higher resolution
+        const globeMaterial = new THREE.MeshPhongMaterial({
+            color: this.brandColors.deepSea,
+            transparent: true,
+            opacity: 0.8,
+            wireframe: false,
+            shininess: 100,
+            specular: new THREE.Color(this.brandColors.primary)
         });
         
         this.globe = new THREE.Mesh(globeGeometry, globeMaterial);
         this.scene.add(this.globe);
 
-        // Add wireframe overlay for tech aesthetic
-        const wireframeGeometry = new THREE.SphereGeometry(50.1, 16, 16);
+        // Add refined wireframe overlay
+        const wireframeGeometry = new THREE.SphereGeometry(50.2, 32, 32);
         const wireframeMaterial = new THREE.MeshBasicMaterial({
             color: this.brandColors.primary,
             wireframe: true,
             transparent: true,
-            opacity: 0.3
+            opacity: 0.15
         });
         const wireframe = new THREE.Mesh(wireframeGeometry, wireframeMaterial);
         this.scene.add(wireframe);
 
-        // Add glow effect
-        const glowGeometry = new THREE.SphereGeometry(52, 32, 32);
-        const glowMaterial = new THREE.ShaderMaterial({
+        // Enhanced atmospheric glow
+        const atmosphereGeometry = new THREE.SphereGeometry(53, 32, 32);
+        const atmosphereMaterial = new THREE.ShaderMaterial({
             uniforms: {
                 time: { value: 1.0 },
                 color: { value: new THREE.Color(this.brandColors.primary) }
             },
             vertexShader: `
                 varying vec3 vNormal;
+                varying vec3 vPosition;
                 void main() {
                     vNormal = normalize(normalMatrix * normal);
+                    vPosition = position;
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
                 }
             `,
@@ -202,53 +361,46 @@ export class Visualization {
                 uniform float time;
                 uniform vec3 color;
                 varying vec3 vNormal;
+                varying vec3 vPosition;
                 void main() {
-                    float intensity = pow(0.7 - dot(vNormal, vec3(0, 0, 1.0)), 2.0);
-                    gl_FragColor = vec4(color, intensity * 0.5);
+                    float intensity = pow(0.6 - dot(vNormal, vec3(0, 0, 1.0)), 2.0);
+                    float pulse = sin(time * 0.5) * 0.1 + 0.9;
+                    gl_FragColor = vec4(color, intensity * 0.3 * pulse);
                 }
             `,
             side: THREE.BackSide,
             blending: THREE.AdditiveBlending,
             transparent: true
         });
-        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-        this.scene.add(glow);
+        const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+        atmosphere.userData = { isAtmosphere: true };
+        this.scene.add(atmosphere);
     }
 
     setupLighting() {
-        // Ambient light for overall scene brightness
-        const ambientLight = new THREE.AmbientLight(this.brandColors.white, 0.4);
+        // Ambient light for space atmosphere
+        const ambientLight = new THREE.AmbientLight(0x1a1a2e, 0.3);
         this.scene.add(ambientLight);
 
-        // Directional light with HTW brand color
-        const directionalLight = new THREE.DirectionalLight(this.brandColors.primary, 0.6);
-        directionalLight.position.set(100, 100, 50);
-        this.scene.add(directionalLight);
-
-        // Point light for dynamic highlights
-        const pointLight = new THREE.PointLight(this.brandColors.white, 0.8, 200);
-        pointLight.position.set(0, 50, 100);
-        this.scene.add(pointLight);
-    }
-
-    setupLighting() {
-        // Ambient light
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-        this.scene.add(ambientLight);
-        
-        // Directional light
+        // Main directional light (sun-like)
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(10, 10, 5);
+        directionalLight.position.set(100, 100, 50);
+        directionalLight.castShadow = false; // Disable shadows for performance
         this.scene.add(directionalLight);
-        
-        // Point lights for atmosphere
-        const pointLight1 = new THREE.PointLight(0x00d4ff, 0.5, 100);
-        pointLight1.position.set(-50, -50, 50);
-        this.scene.add(pointLight1);
-        
-        const pointLight2 = new THREE.PointLight(0xff6b9d, 0.5, 100);
-        pointLight2.position.set(50, 50, -50);
-        this.scene.add(pointLight2);
+
+        // HTW brand accent lights
+        const cyanLight = new THREE.PointLight(this.brandColors.primary, 0.6, 150);
+        cyanLight.position.set(-80, 60, 80);
+        this.scene.add(cyanLight);
+
+        const blueLight = new THREE.PointLight(this.brandColors.techBlue, 0.4, 120);
+        blueLight.position.set(80, -60, -80);
+        this.scene.add(blueLight);
+
+        // Subtle rim lighting for atmosphere
+        const rimLight = new THREE.DirectionalLight(this.brandColors.primary, 0.3);
+        rimLight.position.set(-50, 0, -100);
+        this.scene.add(rimLight);
     }
 
     setupBackground() {
@@ -388,12 +540,15 @@ export class Visualization {
                 isCluster: dataPoint.isCluster,
                 memberCount: dataPoint.memberCount || 1,
                 industries: dataPoint.industries || [dataPoint.industryCategory],
-                location: dataPoint.fullLocation
+                location: dataPoint.fullLocation,
+                animationOffset: Math.random() * Math.PI * 2 // For floating animation
             };
 
-            // Add pulsing animation for clusters
+            // Add pulsing animation data for clusters
             if (dataPoint.isCluster && dataPoint.memberCount > 1) {
-                pointMesh.userData.pulseSpeed = 0.02 + (dataPoint.memberCount * 0.001);
+                pointMesh.userData.pulseSpeed = 0.5 + (dataPoint.memberCount * 0.05);
+                pointMesh.userData.originalScale = scale;
+            } else {
                 pointMesh.userData.originalScale = scale;
             }
 
@@ -710,26 +865,74 @@ export class Visualization {
     animate() {
         requestAnimationFrame(() => this.animate());
         
+        const time = Date.now() * 0.001;
+        
         // Update controls for smooth interaction
         if (this.controls) {
             this.controls.update();
         }
         
-        // Animate data points with subtle floating motion
-        const time = Date.now() * 0.001;
+        // Animate background elements
+        this.animateBackgroundElements(time);
+        
+        // Animate data points with subtle floating motion and pulsing
         this.dataPoints.children.forEach((mesh, index) => {
-            const offset = mesh.userData.animationOffset;
-            mesh.position.y += Math.sin(time + offset) * 0.01;
-            mesh.rotation.y += 0.005;
+            if (mesh.userData.originalData) {
+                // Subtle floating motion
+                const offset = index * 0.1;
+                mesh.position.y += Math.sin(time + offset) * 0.008;
+                
+                // Pulsing animation for clusters
+                if (mesh.userData.isCluster && mesh.userData.pulseSpeed) {
+                    const pulseScale = 1 + Math.sin(time * mesh.userData.pulseSpeed) * 0.1;
+                    mesh.scale.setScalar(mesh.userData.originalScale * pulseScale);
+                }
+                
+                // Gentle rotation for visual interest
+                mesh.rotation.y += 0.003;
+                mesh.rotation.x += 0.001;
+            }
         });
         
-        // Rotate the entire visualization slowly (only if auto-rotate is enabled)
-        if (this.autoRotate !== false) {
-            this.dataPoints.rotation.y += 0.001;
-            this.connections.rotation.y += 0.001;
+        // Animate globe rotation (very slow)
+        if (this.globe) {
+            this.globe.rotation.y += 0.0005;
         }
         
+        // Update atmospheric glow animation
+        this.scene.children.forEach(child => {
+            if (child.userData.isAtmosphere && child.material.uniforms) {
+                child.material.uniforms.time.value = time;
+            }
+        });
+        
         this.renderer.render(this.scene, this.camera);
+    }
+
+    animateBackgroundElements(time) {
+        // Animate starfield layers with parallax effect
+        this.scene.children.forEach(child => {
+            if (child.userData.isStars) {
+                const speed = child.userData.rotationSpeed;
+                child.rotation.y += speed;
+                
+                // Add subtle drift to stars
+                if (child.userData.layer === 1) { // HTW cyan stars
+                    child.rotation.x += speed * 0.5;
+                }
+            }
+            
+            // Animate nebula clouds
+            if (child.userData.isNebula) {
+                child.rotation.y += child.userData.rotationSpeed;
+                child.rotation.z += child.userData.rotationSpeed * 0.5;
+                
+                // Pulsing opacity for nebula
+                if (child.material) {
+                    child.material.opacity = 0.05 + Math.sin(time * 0.3) * 0.03;
+                }
+            }
+        });
     }
 
     // Public methods for external control
