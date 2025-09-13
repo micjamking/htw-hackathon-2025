@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTW Community 3D Visualization</title>
+    <meta name="description" content="Interactive 3D visualization of the HTW Community network">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div id="app">
+        <!-- Loading screen -->
+        <div id="loading-screen">
+            <div class="loading-content">
+                <h1>HTW Community</h1>
+                <p>Loading 3D visualization...</p>
+                <div class="loading-bar">
+                    <div class="loading-progress"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main visualization container -->
+        <div id="visualization-container">
+            <canvas id="three-canvas"></canvas>
+        </div>
+
+        <!-- UI Controls -->
+        <div id="ui-controls">
+            <div class="control-panel">
+                <h3>Visualization Controls</h3>
+                
+                <!-- Filter controls -->
+                <div class="filter-section">
+                    <h4>Filters</h4>
+                    <div class="filter-group">
+                        <label for="industry-filter">Industry:</label>
+                        <select id="industry-filter" multiple>
+                            <option value="all">All Industries</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="location-filter">Location:</label>
+                        <select id="location-filter" multiple>
+                            <option value="all">All Locations</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="role-filter">Role Type:</label>
+                        <select id="role-filter" multiple>
+                            <option value="all">All Roles</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- View controls -->
+                <div class="view-section">
+                    <h4>View</h4>
+                    <button id="reset-camera">Reset Camera</button>
+                    <button id="auto-rotate" class="toggle-btn">Auto Rotate</button>
+                </div>
+
+                <!-- Information panel -->
+                <div class="info-section">
+                    <h4>Statistics</h4>
+                    <div id="stats-display">
+                        <p>Total Members: <span id="total-count">0</span></p>
+                        <p>Visible: <span id="visible-count">0</span></p>
+                        <p>Selected: <span id="selected-info">None</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detail modal -->
+        <div id="detail-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <div id="modal-body">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
