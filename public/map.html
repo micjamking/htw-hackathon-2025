@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv='cache-control' content='no-cache'> 
+    <meta http-equiv='expires' content='0'> 
+    <meta http-equiv='pragma' content='no-cache'>
+    <title>HTW Community 3D Visualization</title>
+    <meta name="description" content="Interactive 3D visualization of the HTW Community network">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div id="app">
+        <!-- Loading screen -->
+        <div id="loading-screen">
+            <div class="loading-content">
+                <h1>HTW Community</h1>
+                <p>Loading 3D visualization...</p>
+                <div class="loading-bar">
+                    <div class="loading-progress"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main visualization container -->
+        <div id="visualization-container">
+            <canvas id="three-canvas"></canvas>
+        </div>
+
+        <!-- UI Controls Sidebar -->
+        <div class="controls-toggle" id="controls-toggle">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </div>
+        
+        <div class="controls-sidebar" id="controls-sidebar">
+            <div class="filter-section">
+                <h3 class="filter-title">Visualization Controls</h3>
+                
+                <!-- Filter controls -->
+                <div class="filter-group">
+                    <label class="filter-label" for="industry-filter">Industry:</label>
+                    <select id="industry-filter" class="filter-select" multiple>
+                        <option value="all">All Industries</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label" for="location-filter">Location:</label>
+                    <select id="location-filter" class="filter-select" multiple>
+                        <option value="all">All Locations</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label" for="role-filter">Role Type:</label>
+                    <select id="role-filter" class="filter-select" multiple>
+                        <option value="all">All Roles</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- View controls -->
+            <div class="filter-section">
+                <h3 class="filter-title">View</h3>
+                <div class="action-buttons">
+                    <button id="reset-camera" class="action-btn">Reset Camera</button>
+                    <button id="auto-rotate" class="action-btn toggle-btn">Auto Rotate</button>
+                </div>
+            </div>
+
+            <!-- Industry Legend -->
+            <div class="filter-section">
+                <h3 class="filter-title">Industry Legend</h3>
+                <div class="industry-legend" id="industry-legend">
+                    <!-- Dynamic legend items will be added here -->
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="filter-section">
+                <h3 class="filter-title">Statistics</h3>
+                <div class="stats-panel">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-value" id="total-count">2340</span>
+                            <span class="stat-description">Total Members</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="visible-count">2340</span>
+                            <span class="stat-description">Visible</span>
+                        </div>
+                    </div>
+                    <div id="selected-info" class="stat-description" style="text-align: center; margin-top: 1rem;">
+                        None selected
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detail modal -->
+        <div id="detail-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <div id="modal-body">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

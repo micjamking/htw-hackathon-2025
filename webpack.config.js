@@ -6,10 +6,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default {
-  entry: './src/js/main.js',
+  entry: {
+    main: './src/js/main.js',
+    landing: './public/landing.js',
+  },
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'bundle.[contenthash].js',
+    filename: '[name].[contenthash].js',
     clean: true,
   },
   module: {
@@ -39,7 +42,15 @@ export default {
   plugins: [
     new HtmlWebpackPlugin({
       template: './public/index.html',
+      filename: 'index.html',
+      title: 'HTW 2025 Network Health Dashboard',
+      chunks: ['landing'],
+    }),
+    new HtmlWebpackPlugin({
+      template: './public/map.html',
+      filename: 'map.html',
       title: 'HTW Community 3D Visualization',
+      chunks: ['main'],
     }),
   ],
   devServer: {

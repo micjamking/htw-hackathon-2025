@@ -6,109 +6,293 @@
     <meta http-equiv='cache-control' content='no-cache'> 
     <meta http-equiv='expires' content='0'> 
     <meta http-equiv='pragma' content='no-cache'>
-    <title>HTW Community 3D Visualization</title>
-    <meta name="description" content="Interactive 3D visualization of the HTW Community network">
+    <title>HTW 2025 Network Health Dashboard</title>
+    <meta name="description" content="Explore the global reach and impact of Honolulu Tech Week 2025 - connecting 2,597 participants across 23 countries">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
+    <!-- HTW Brand Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Landing Page Styles -->
+    <link rel="stylesheet" href="/landing.css">
 </head>
 <body>
     <div id="app">
-        <!-- Loading screen -->
-        <div id="loading-screen">
-            <div class="loading-content">
-                <h1>HTW Community</h1>
-                <p>Loading 3D visualization...</p>
-                <div class="loading-bar">
-                    <div class="loading-progress"></div>
+        <!-- Navigation Header -->
+        <nav class="nav-header">
+            <div class="nav-container">
+                <div class="nav-brand">
+                    <h1 class="brand-text">HTW 2025</h1>
+                    <span class="brand-subtitle">Network Health Dashboard</span>
+                </div>
+                <div class="nav-actions">
+                    <a href="/map.html" class="nav-link interactive-map-btn">
+                        <span class="nav-icon">🌍</span>
+                        Explore Interactive Map
+                    </a>
                 </div>
             </div>
-        </div>
+        </nav>
 
-        <!-- Main visualization container -->
-        <div id="visualization-container">
-            <canvas id="three-canvas"></canvas>
-        </div>
-
-        <!-- UI Controls Sidebar -->
-        <div class="controls-toggle" id="controls-toggle">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-        </div>
-        
-        <div class="controls-sidebar" id="controls-sidebar">
-            <div class="filter-section">
-                <h3 class="filter-title">Visualization Controls</h3>
-                
-                <!-- Filter controls -->
-                <div class="filter-group">
-                    <label class="filter-label" for="industry-filter">Industry:</label>
-                    <select id="industry-filter" class="filter-select" multiple>
-                        <option value="all">All Industries</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label class="filter-label" for="location-filter">Location:</label>
-                    <select id="location-filter" class="filter-select" multiple>
-                        <option value="all">All Locations</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label class="filter-label" for="role-filter">Role Type:</label>
-                    <select id="role-filter" class="filter-select" multiple>
-                        <option value="all">All Roles</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- View controls -->
-            <div class="filter-section">
-                <h3 class="filter-title">View</h3>
-                <div class="action-buttons">
-                    <button id="reset-camera" class="action-btn">Reset Camera</button>
-                    <button id="auto-rotate" class="action-btn toggle-btn">Auto Rotate</button>
-                </div>
-            </div>
-
-            <!-- Industry Legend -->
-            <div class="filter-section">
-                <h3 class="filter-title">Industry Legend</h3>
-                <div class="industry-legend" id="industry-legend">
-                    <!-- Dynamic legend items will be added here -->
-                </div>
-            </div>
-
-            <!-- Statistics -->
-            <div class="filter-section">
-                <h3 class="filter-title">Statistics</h3>
-                <div class="stats-panel">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <span class="stat-value" id="total-count">2340</span>
-                            <span class="stat-description">Total Members</span>
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-container">
+                <div class="hero-content">
+                    <h1 class="hero-headline">
+                        <span class="headline-main">From Honolulu</span>
+                        <span class="headline-accent">to the World</span>
+                        <span class="headline-sub">The Reach of HTW 2025</span>
+                    </h1>
+                    
+                    <div class="hero-metrics">
+                        <div class="metric-item">
+                            <div class="metric-number" data-target="2597">0</div>
+                            <div class="metric-label">Participants</div>
                         </div>
-                        <div class="stat-card">
-                            <span class="stat-value" id="visible-count">2340</span>
-                            <span class="stat-description">Visible</span>
+                        <div class="metric-item">
+                            <div class="metric-number" data-target="50">0</div>
+                            <div class="metric-label">Events</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-number" data-target="23">0</div>
+                            <div class="metric-label">Countries</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-number" data-target="373">0</div>
+                            <div class="metric-label">Industries</div>
                         </div>
                     </div>
-                    <div id="selected-info" class="stat-description" style="text-align: center; margin-top: 1rem;">
-                        None selected
+
+                    <p class="hero-description">
+                        Honolulu Tech Week connects innovators, entrepreneurs, and thought leaders 
+                        from around the globe, making Hawaii the crossroads of Pacific innovation.
+                    </p>
+
+                    <div class="hero-actions">
+                        <a href="/map.html" class="cta-primary">
+                            <span class="cta-icon">🗺️</span>
+                            Explore the Interactive Map
+                            <span class="cta-arrow">→</span>
+                        </a>
+                        <button class="cta-secondary" id="scroll-to-stats">
+                            View Impact Data
+                            <span class="cta-arrow">↓</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="hero-visual">
+                    <div class="globe-visualization" id="landing-globe">
+                        <!-- Animated globe visualization will be inserted here -->
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Detail modal -->
-        <div id="detail-modal" class="modal">
-            <div class="modal-content">
-                <span class="close">&times;</span>
-                <div id="modal-body">
-                    <!-- Dynamic content will be inserted here -->
+        <!-- Global Impact Section -->
+        <section class="impact-section" id="global-impact">
+            <div class="section-container">
+                <div class="section-header">
+                    <h2 class="section-title">A Growing Global Network</h2>
+                    <p class="section-description">
+                        Honolulu Tech Week is more than a local gathering — it's a global movement. 
+                        In 2025, attendees represented 23 countries and 32 U.S. states, demonstrating 
+                        Hawaii's unique role as a crossroads of innovation.
+                    </p>
+                </div>
+
+                <div class="impact-grid">
+                    <!-- Global Reach Card -->
+                    <div class="impact-card global-card">
+                        <div class="card-header">
+                            <h3 class="card-title">Global Reach</h3>
+                            <div class="card-icon">🌎</div>
+                        </div>
+                        <div class="card-stat">
+                            <span class="stat-number">40%</span>
+                            <span class="stat-description">of attendees joined from outside Hawaii</span>
+                        </div>
+                        <div class="card-chart" id="global-chart">
+                            <!-- Country distribution chart -->
+                        </div>
+                    </div>
+
+                    <!-- Local Footprint Card -->
+                    <div class="impact-card local-card">
+                        <div class="card-header">
+                            <h3 class="card-title">Anchored in Hawaii</h3>
+                            <div class="card-icon">🏝️</div>
+                        </div>
+                        <div class="card-stat">
+                            <span class="stat-number">2,002</span>
+                            <span class="stat-description">participants from the Hawaiian Islands</span>
+                        </div>
+                        <div class="card-chart" id="hawaii-chart">
+                            <!-- Hawaii islands distribution -->
+                        </div>
+                    </div>
+
+                    <!-- Industry Diversity Card -->
+                    <div class="impact-card industry-card">
+                        <div class="card-header">
+                            <h3 class="card-title">Industry Diversity</h3>
+                            <div class="card-icon">💼</div>
+                        </div>
+                        <div class="card-stat">
+                            <span class="stat-number">373</span>
+                            <span class="stat-description">unique industries represented</span>
+                        </div>
+                        <div class="card-chart" id="industry-chart">
+                            <!-- Industry distribution -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="insight-callout">
+                    <div class="callout-content">
+                        <div class="callout-icon">💡</div>
+                        <div class="callout-text">
+                            <h4>Key Insight</h4>
+                            <p>Technology led the way, but nearly 40% of attendees came from outside the tech sector, 
+                               showcasing HTW's cross-industry appeal and Hawaii's role as a hub for diverse innovation.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </section>
+
+        <!-- Detailed Stats Section -->
+        <section class="stats-section">
+            <div class="section-container">
+                <div class="section-header">
+                    <h2 class="section-title">HTW 2025 at a Glance</h2>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stats-category">
+                        <h3 class="category-title">Top Countries</h3>
+                        <div class="stats-list">
+                            <div class="stat-item">
+                                <span class="stat-label">USA</span>
+                                <span class="stat-value">2,224</span>
+                                <div class="stat-bar" style="width: 100%"></div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Canada</span>
+                                <span class="stat-value">8</span>
+                                <div class="stat-bar" style="width: 12%"></div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Israel</span>
+                                <span class="stat-value">2</span>
+                                <div class="stat-bar" style="width: 6%"></div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Philippines</span>
+                                <span class="stat-value">2</span>
+                                <div class="stat-bar" style="width: 6%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stats-category">
+                        <h3 class="category-title">Top U.S. States</h3>
+                        <div class="stats-list">
+                            <div class="stat-item">
+                                <span class="stat-label">Hawaii</span>
+                                <span class="stat-value">2,002</span>
+                                <div class="stat-bar" style="width: 100%"></div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">California</span>
+                                <span class="stat-value">105</span>
+                                <div class="stat-bar" style="width: 45%"></div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Washington</span>
+                                <span class="stat-value">20</span>
+                                <div class="stat-bar" style="width: 15%"></div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">New York</span>
+                                <span class="stat-value">13</span>
+                                <div class="stat-bar" style="width: 12%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stats-category">
+                        <h3 class="category-title">Top Industries</h3>
+                        <div class="stats-list">
+                            <div class="stat-item">
+                                <span class="stat-label">Software & Technology</span>
+                                <span class="stat-value">380</span>
+                                <div class="stat-bar" style="width: 100%"></div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Education & EdTech</span>
+                                <span class="stat-value">215</span>
+                                <div class="stat-bar" style="width: 65%"></div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Consulting & Professional</span>
+                                <span class="stat-value">169</span>
+                                <div class="stat-bar" style="width: 50%"></div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Healthcare & Biotech</span>
+                                <span class="stat-value">118</span>
+                                <div class="stat-bar" style="width: 35%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Call to Action Section -->
+        <section class="cta-section">
+            <div class="section-container">
+                <div class="cta-content">
+                    <h2 class="cta-title">Partner with Honolulu Tech Week</h2>
+                    <p class="cta-description">
+                        HTW grows bigger every year. By partnering with us, your brand becomes part of a movement 
+                        that connects Hawaii's innovation with the world.
+                    </p>
+                    <div class="cta-actions">
+                        <a href="/map.html" class="cta-primary">
+                            <span class="cta-icon">🗺️</span>
+                            Explore Interactive Network Map
+                            <span class="cta-arrow">→</span>
+                        </a>
+                        <a href="mailto:partners@honolulutechweek.com" class="cta-secondary">
+                            Become a Sponsor
+                            <span class="cta-arrow">→</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-container">
+                <div class="footer-brand">
+                    <h3 class="footer-title">HTW 2025 Network Health Dashboard</h3>
+                    <p class="footer-description">Visualizing the global reach of Honolulu Tech Week</p>
+                </div>
+                <div class="footer-links">
+                    <a href="/map.html" class="footer-link">Interactive Map</a>
+                    <a href="https://honolulutechweek.com" class="footer-link">HTW Website</a>
+                    <a href="mailto:info@honolulutechweek.com" class="footer-link">Contact</a>
+                </div>
+            </div>
+        </footer>
     </div>
+
+    <!-- Landing page specific scripts -->
+    <script type="module" src="/landing.js"></script>
 </body>
 </html>

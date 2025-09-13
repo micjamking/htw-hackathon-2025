@@ -1,7 +1,3 @@
-Perfect — I’ve pulled insights from the **HTW2025Audience.csv** dataset and used them to flesh out draft copy for the landing page. Here’s a content-ready wireframe:
-
----
-
 # **HTW 2025 Network Health Dashboard – Landing Page Content**
 
 ### **1. Hero Section**
