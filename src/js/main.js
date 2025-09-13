@@ -19,9 +19,9 @@ class HTWVisualizationApp {
 
     async init() {
         try {
-            console.log('Initializing HTW Community Visualization...');
+            console.log('🚀 Initializing HTW Community Visualization...');
             
-            // Show loading screen
+            // Show loading screen with HTW branding
             Utils.showLoadingScreen();
             Utils.updateLoadingProgress(10);
 
@@ -30,17 +30,18 @@ class HTWVisualizationApp {
                 throw new Error('WebGL is not supported in this browser. Please use a modern browser with WebGL support.');
             }
 
-            // Initialize data loader
-            console.log('Loading data...');
+            // Initialize data loader with performance optimizations
+            console.log('📊 Loading and clustering community data...');
             Utils.updateLoadingProgress(25);
             this.dataLoader = new DataLoader();
-            const data = await this.dataLoader.loadData();
+            const data = await this.dataLoader.loadData(); // Returns clustered data
             
             if (!data || data.length === 0) {
                 throw new Error('No data available to visualize.');
             }
 
-            console.log(`Loaded ${data.length} data points`);
+            const stats = this.dataLoader.getStatistics();
+            console.log(`✅ Data processed: ${stats.total} members → ${stats.totalClusters} optimized render points (${stats.performance.compressionRatio} compression)`);
             Utils.updateLoadingProgress(50);
 
             // Initialize visualization
