@@ -226,9 +226,6 @@ body {
     height: 100% !important;
     display: block;
 }
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
 
 .loading-content p {
     margin-bottom: 2rem;
