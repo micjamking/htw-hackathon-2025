@@ -73,10 +73,10 @@ export class Visualization {
 
     // Initialize material and geometry pools for performance
     initializeMaterialPool() {
-        // Create reusable geometries for performance - Refined for professional look
-        this.geometryPool.set('sphere', new THREE.SphereGeometry(1.5, 12, 8));         // Smaller, refined
-        this.geometryPool.set('cluster', new THREE.SphereGeometry(2.5, 16, 12));       // Medium cluster
-        this.geometryPool.set('large-cluster', new THREE.SphereGeometry(4, 20, 16));   // Large cluster
+        // Create reusable geometries for performance - Much smaller for professional look
+        this.geometryPool.set('sphere', new THREE.SphereGeometry(0.4, 12, 8));         // Very small individual points
+        this.geometryPool.set('cluster', new THREE.SphereGeometry(0.8, 16, 12));       // Small cluster
+        this.geometryPool.set('large-cluster', new THREE.SphereGeometry(1.2, 20, 16)); // Medium cluster
 
         // Create materials for each industry with glow effects
         Object.entries(this.industryColors).forEach(([industry, color]) => {
@@ -474,12 +474,12 @@ export class Visualization {
             const position = this.latLngToVector3(
                 dataPoint.coordinates.lat, 
                 dataPoint.coordinates.lng, 
-                60 // Globe radius (50) + larger offset (10) for clear visibility
+                52 // Globe radius (50) + small offset (2) for visibility without being too far
             );
 
             // Add small random offset for clustered points to prevent overlap
             if (dataPoint.isCluster && dataPoint.memberCount > 1) {
-                const offsetRadius = Math.min(dataPoint.memberCount * 0.1, 3); // Max 3 unit spread
+                const offsetRadius = Math.min(dataPoint.memberCount * 0.05, 1); // Max 1 unit spread (reduced)
                 position.x += (Math.random() - 0.5) * offsetRadius;
                 position.y += (Math.random() - 0.5) * offsetRadius; 
                 position.z += (Math.random() - 0.5) * offsetRadius;
@@ -607,30 +607,30 @@ export class Visualization {
         let geometry, material, scale;
         
         if (memberCount === 1) {
-            // Individual point
+            // Individual point - keep small
             geometry = this.geometryPool.get('sphere');
             material = this.materialPool.get(`point-${industry}`) || 
                       this.materialPool.get('point-Other');
             scale = 1;
         } else if (memberCount <= 5) {
-            // Small cluster
+            // Small cluster - slight increase
             geometry = this.geometryPool.get('cluster');
             material = this.materialPool.get(`cluster-${industry}`) || 
                       this.materialPool.get('cluster-Mixed');
-            scale = 1.2 + (memberCount * 0.1);
+            scale = 1 + (memberCount * 0.05); // Much smaller scaling
         } else {
-            // Large cluster
+            // Large cluster - moderate increase
             geometry = this.geometryPool.get('large-cluster');
             material = this.materialPool.get(`cluster-${industry}`) || 
                       this.materialPool.get('cluster-Mixed');
-            scale = 1.5 + Math.min(memberCount * 0.05, 2); // Cap at reasonable size
+            scale = 1.2 + Math.min(memberCount * 0.02, 0.8); // Cap at much smaller size
         }
 
-        // Adjust scale based on camera distance for LOD
+        // Adjust scale based on camera distance for LOD (more subtle)
         if (cameraDistance > 200) {
-            scale *= 1.5; // Make points larger when far away
+            scale *= 1.2; // Smaller increase when far away
         } else if (cameraDistance < 80) {
-            scale *= 0.8; // Make points smaller when close
+            scale *= 0.9; // Smaller reduction when close
         }
 
         return { geometry, material, scale };
@@ -799,7 +799,7 @@ export class Visualization {
             this.container.style.cursor = 'pointer';
             
             // Show tooltip
-            this.showTooltip(event, object.userData.dataPoint);
+            this.showTooltip(event, object.userData.originalData);
         } else {
             this.hoveredObject = null;
             this.container.style.cursor = 'default';
@@ -822,7 +822,7 @@ export class Visualization {
             
             // Dispatch selection event
             const customEvent = new CustomEvent('dataPointSelected', {
-                detail: this.selectedObject.userData.dataPoint
+                detail: this.selectedObject.userData.originalData
             });
             document.dispatchEvent(customEvent);
         }
@@ -835,6 +835,11 @@ export class Visualization {
     }
 
     showTooltip(event, dataPoint) {
+        if (!dataPoint) {
+            console.warn('No dataPoint provided to showTooltip');
+            return;
+        }
+
         let tooltip = document.getElementById('tooltip');
         if (!tooltip) {
             tooltip = document.createElement('div');
@@ -843,22 +848,42 @@ export class Visualization {
             document.body.appendChild(tooltip);
         }
         
-        tooltip.innerHTML = `
-            <strong>${dataPoint.role}</strong><br>
-            Industry: ${dataPoint.industryCategory}<br>
-            Location: ${dataPoint.fullLocation}<br>
-            Group: ${dataPoint.group}
-        `;
+        // Handle both individual members and clusters
+        if (dataPoint.isCluster && dataPoint.memberCount > 1) {
+            tooltip.innerHTML = `
+                <div class="tooltip-title">Data Cluster</div>
+                <div class="tooltip-content">
+                    <strong>Members: ${dataPoint.memberCount}</strong><br>
+                    Industry: ${dataPoint.industryCategory || 'Mixed'}<br>
+                    Location: ${dataPoint.fullLocation || 'Multiple locations'}<br>
+                    ${dataPoint.industries && dataPoint.industries.length > 1 ? 
+                        `<br><small>Industries: ${dataPoint.industries.slice(0, 3).join(', ')}${dataPoint.industries.length > 3 ? '...' : ''}</small>` : 
+                        ''}
+                </div>
+            `;
+        } else {
+            tooltip.innerHTML = `
+                <div class="tooltip-title">${dataPoint.role || 'HTW Community Member'}</div>
+                <div class="tooltip-content">
+                    Industry: ${dataPoint.industryCategory || 'Not specified'}<br>
+                    Location: ${dataPoint.fullLocation || 'Not specified'}<br>
+                    ${dataPoint.group ? `Group: ${dataPoint.group}<br>` : ''}
+                    ${dataPoint.company ? `Company: ${dataPoint.company}` : ''}
+                </div>
+            `;
+        }
         
         tooltip.style.display = 'block';
         tooltip.style.left = event.clientX + 10 + 'px';
         tooltip.style.top = event.clientY + 10 + 'px';
+        tooltip.classList.add('visible');
     }
 
     hideTooltip() {
         const tooltip = document.getElementById('tooltip');
         if (tooltip) {
             tooltip.style.display = 'none';
+            tooltip.classList.remove('visible');
         }
     }
 
@@ -966,6 +991,6 @@ export class Visualization {
     }
 
     getSelectedDataPoint() {
-        return this.selectedObject ? this.selectedObject.userData.dataPoint : null;
+        return this.selectedObject ? this.selectedObject.userData.originalData : null;
     }
 }
