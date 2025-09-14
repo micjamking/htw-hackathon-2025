@@ -9,22 +9,25 @@
   "scripts": {
     "dev": "webpack serve --mode development --open",
     "build": "webpack --mode production",
+    "verify": "node scripts/verify-assets.js",
+    "predeploy": "npm run build && npm run verify",
     "deploy": "npm run build && gh-pages -d dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "three": "^0.157.0",
-    "d3": "^7.8.5"
+    "d3": "^7.8.5",
+    "three": "^0.157.0"
   },
   "devDependencies": {
+    "copy-webpack-plugin": "^13.0.1",
+    "css-loader": "^6.8.1",
+    "file-loader": "^6.2.0",
+    "gh-pages": "^6.0.0",
+    "html-webpack-plugin": "^5.5.3",
+    "raw-loader": "^4.0.2",
+    "style-loader": "^3.3.3",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^4.15.1",
-    "html-webpack-plugin": "^5.5.3",
-    "css-loader": "^6.8.1",
-    "style-loader": "^3.3.3",
-    "file-loader": "^6.2.0",
-    "raw-loader": "^4.0.2",
-    "gh-pages": "^6.0.0"
+    "webpack-dev-server": "^4.15.1"
   }
 }

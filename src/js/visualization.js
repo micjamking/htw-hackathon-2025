@@ -338,10 +338,13 @@ export class Visualization {
         const textureLoader = new THREE.TextureLoader();
         let globeMaterial;
         
-        // Texture sources in order of preference
+        // Texture sources in order of preference (CDN first, then local fallbacks)
         const textureSources = [
             'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg', // Original atmospheric texture
-            'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/textures/planets/earth_atmos_2048.jpg'
+            'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/textures/planets/earth_atmos_2048.jpg',
+            './assets/textures/earth_blue_marble.jpg', // Local fallback 1
+            './assets/textures/earth_color.jpg',       // Local fallback 2
+            './assets/textures/earth_map.jpg'          // Local fallback 3
         ];
         
         let textureLoaded = false;
