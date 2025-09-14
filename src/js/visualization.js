@@ -74,9 +74,9 @@ export class Visualization {
     // Initialize material and geometry pools for performance
     initializeMaterialPool() {
         // Create reusable geometries for performance - Much smaller for professional look
-        this.geometryPool.set('sphere', new THREE.SphereGeometry(0.4, 12, 8));         // Very small individual points
-        this.geometryPool.set('cluster', new THREE.SphereGeometry(0.8, 16, 12));       // Small cluster
-        this.geometryPool.set('large-cluster', new THREE.SphereGeometry(1.2, 20, 16)); // Medium cluster
+        this.geometryPool.set('sphere', new THREE.SphereGeometry(0.2, 8, 6));         // Very small individual points
+        this.geometryPool.set('cluster', new THREE.SphereGeometry(0.4, 12, 8));       // Small cluster
+        this.geometryPool.set('large-cluster', new THREE.SphereGeometry(0.6, 16, 12)); // Medium cluster
 
         // Create materials for each industry with glow effects
         Object.entries(this.industryColors).forEach(([industry, color]) => {
@@ -474,7 +474,7 @@ export class Visualization {
             const position = this.latLngToVector3(
                 dataPoint.coordinates.lat, 
                 dataPoint.coordinates.lng, 
-                52 // Globe radius (50) + small offset (2) for visibility without being too far
+                50.5 // Globe radius (50) + minimal offset (0.5) to be exactly on surface
             );
 
             // Add small random offset for clustered points to prevent overlap
@@ -775,56 +775,272 @@ export class Visualization {
     }
 
     onMouseMove(event) {
-        const rect = this.container.getBoundingClientRect();
-        this.mousePosition.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mousePosition.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        
-        // Check for intersections
-        this.raycaster.setFromCamera(this.mousePosition, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.dataPoints.children);
-        
-        // Reset previous hover
-        if (this.hoveredObject && this.hoveredObject !== this.selectedObject) {
-            this.hoveredObject.material.emissiveIntensity = 0.1;
-            this.hoveredObject.scale.set(1, 1, 1);
-        }
-        
-        if (intersects.length > 0) {
-            const object = intersects[0].object;
-            if (object !== this.selectedObject) {
-                object.material.emissiveIntensity = 0.3;
-                object.scale.set(1.2, 1.2, 1.2);
-            }
-            this.hoveredObject = object;
-            this.container.style.cursor = 'pointer';
+        try {
+            const rect = this.container.getBoundingClientRect();
+            this.mousePosition.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            this.mousePosition.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
             
-            // Show tooltip
-            this.showTooltip(event, object.userData.originalData);
-        } else {
-            this.hoveredObject = null;
-            this.container.style.cursor = 'default';
-            this.hideTooltip();
+            // Check for intersections
+            this.raycaster.setFromCamera(this.mousePosition, this.camera);
+            const intersects = this.raycaster.intersectObjects(this.dataPoints.children);
+            
+            // Reset previous hover
+            if (this.hoveredObject && this.hoveredObject !== this.selectedObject) {
+                this.hoveredObject.material.emissiveIntensity = 0.1;
+                this.hoveredObject.scale.set(1, 1, 1);
+            }
+            
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                if (object !== this.selectedObject) {
+                    object.material.emissiveIntensity = 0.3;
+                    object.scale.set(1.2, 1.2, 1.2);
+                }
+                this.hoveredObject = object;
+                this.container.style.cursor = 'pointer';
+                
+                // Show appropriate tooltip based on whether it's a cluster or individual point
+                const userData = object.userData;
+                const dataPoint = userData.originalData || userData; // Fallback for test data
+                
+                if (dataPoint && userData.isCluster && userData.memberCount > 1) {
+                    this.showTooltip(event, dataPoint);
+                } else if (dataPoint) {
+                    // For individual points, show detailed tooltip
+                    this.showDetailedTooltip(event, dataPoint);
+                } else {
+                    console.warn('No valid data found for tooltip', userData);
+                }
+            } else {
+                this.hoveredObject = null;
+                this.container.style.cursor = 'default';
+                this.hideTooltip();
+            }
+        } catch (error) {
+            console.error('Error in onMouseMove:', error);
         }
     }
 
     onMouseClick(event) {
         if (this.hoveredObject) {
-            // Reset previous selection
-            if (this.selectedObject) {
-                this.selectedObject.material.emissiveIntensity = 0.1;
-                this.selectedObject.scale.set(1, 1, 1);
+            const userData = this.hoveredObject.userData;
+            const dataPoint = userData.originalData || userData; // Fallback for test data
+            
+            // If clicking on a cluster, expand it to show individual points
+            if (userData.isCluster && userData.memberCount > 1) {
+                this.expandCluster(this.hoveredObject);
+            } else if (dataPoint) {
+                // Reset previous selection
+                if (this.selectedObject) {
+                    this.resetSelection(this.selectedObject);
+                }
+                
+                // Set new selection for individual points
+                this.selectedObject = this.hoveredObject;
+                this.highlightSelection(this.selectedObject);
+                
+                // Show detailed tooltip for individual point
+                this.showDetailedTooltip(event, dataPoint);
+                
+                // Dispatch selection event
+                const customEvent = new CustomEvent('dataPointSelected', {
+                    detail: dataPoint
+                });
+                document.dispatchEvent(customEvent);
+            } else {
+                console.warn('No valid data found for click action', userData);
             }
+        }
+    }
+
+    expandCluster(clusterMesh) {
+        const clusterData = clusterMesh.userData.originalData;
+        const clusterPosition = clusterMesh.position.clone();
+        
+        // Remove the cluster mesh
+        this.dataPoints.remove(clusterMesh);
+        
+        // Create individual points around the cluster position
+        if (clusterData.members && clusterData.members.length > 1) {
+            this.createExpandedClusterPoints(clusterData.members, clusterPosition);
+        } else {
+            // Fallback: create individual points based on member count
+            this.createExpandedPointsFromCount(clusterData, clusterPosition);
+        }
+        
+        // Update camera to focus on expanded area
+        this.focusOnClusterArea(clusterPosition);
+        
+        // Dispatch cluster expansion event for footer stats update
+        document.dispatchEvent(new CustomEvent('clusterExpanded', {
+            detail: {
+                totalMembers: this.dataPoints.children.length,
+                activeClusters: this.dataPoints.children.filter(child => 
+                    child.userData.isCluster && child.userData.originalData.memberCount > 1
+                ).length
+            }
+        }));
+    }
+    
+    createExpandedClusterPoints(members, centerPosition) {
+        const radius = 2; // Spread radius for expanded points
+        const angleStep = (Math.PI * 2) / members.length;
+        
+        members.forEach((member, index) => {
+            const angle = angleStep * index;
+            const offsetX = Math.cos(angle) * radius;
+            const offsetY = Math.sin(angle) * radius;
             
-            // Set new selection
-            this.selectedObject = this.hoveredObject;
-            this.selectedObject.material.emissiveIntensity = 0.5;
-            this.selectedObject.scale.set(1.5, 1.5, 1.5);
+            // Calculate position on sphere surface
+            const expandedPosition = centerPosition.clone();
+            expandedPosition.x += offsetX;
+            expandedPosition.y += offsetY;
             
-            // Dispatch selection event
-            const customEvent = new CustomEvent('dataPointSelected', {
-                detail: this.selectedObject.userData.originalData
-            });
-            document.dispatchEvent(customEvent);
+            // Normalize to sphere surface
+            expandedPosition.normalize().multiplyScalar(50.5);
+            
+            // Create individual point
+            const pointMesh = this.createIndividualPoint(member, expandedPosition);
+            if (pointMesh) {
+                this.dataPoints.add(pointMesh);
+                
+                // Add entrance animation
+                pointMesh.scale.setScalar(0);
+                const targetScale = 1;
+                const delay = index * 100;
+                
+                setTimeout(() => {
+                    this.animatePointEntrance(pointMesh, targetScale);
+                }, delay);
+            }
+        });
+    }
+    
+    createExpandedPointsFromCount(clusterData, centerPosition) {
+        const memberCount = clusterData.memberCount || 1;
+        const radius = Math.min(3, memberCount * 0.3); // Adaptive radius
+        
+        for (let i = 0; i < memberCount; i++) {
+            const angle = (Math.PI * 2 * i) / memberCount;
+            const offsetX = Math.cos(angle) * radius;
+            const offsetY = Math.sin(angle) * radius;
+            
+            const expandedPosition = centerPosition.clone();
+            expandedPosition.x += offsetX;
+            expandedPosition.y += offsetY;
+            expandedPosition.normalize().multiplyScalar(50.5);
+            
+            // Create synthetic member data
+            const syntheticMember = {
+                ...clusterData,
+                id: `${clusterData.id}_expanded_${i}`,
+                isCluster: false,
+                memberCount: 1,
+                role: `Member ${i + 1}`,
+                coordinates: this.vector3ToLatLng(expandedPosition)
+            };
+            
+            const pointMesh = this.createIndividualPoint(syntheticMember, expandedPosition);
+            if (pointMesh) {
+                this.dataPoints.add(pointMesh);
+                
+                // Add entrance animation
+                pointMesh.scale.setScalar(0);
+                setTimeout(() => {
+                    this.animatePointEntrance(pointMesh, 1);
+                }, i * 50);
+            }
+        }
+    }
+    
+    createIndividualPoint(memberData, position) {
+        const geometry = this.geometryPool.get('sphere');
+        const material = this.materialPool.get(`point-${memberData.industryCategory}`) || 
+                        this.materialPool.get('point-Other');
+        
+        if (!geometry || !material) return null;
+        
+        const pointMesh = new THREE.Mesh(geometry, material.clone());
+        pointMesh.position.copy(position);
+        
+        pointMesh.userData = {
+            originalData: memberData,
+            id: memberData.id,
+            isCluster: false,
+            memberCount: 1,
+            industries: [memberData.industryCategory],
+            location: memberData.fullLocation,
+            animationOffset: Math.random() * Math.PI * 2
+        };
+        
+        return pointMesh;
+    }
+    
+    animatePointEntrance(pointMesh, targetScale) {
+        const startTime = Date.now();
+        const duration = 500; // 500ms animation
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Easing function for smooth animation
+            const easeOut = 1 - Math.pow(1 - progress, 3);
+            const scale = easeOut * targetScale;
+            
+            pointMesh.scale.setScalar(scale);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+        
+        animate();
+    }
+    
+    focusOnClusterArea(position) {
+        // Smoothly move camera to focus on the expanded cluster area
+        const targetPosition = position.clone().normalize().multiplyScalar(80);
+        const currentPosition = this.camera.position.clone();
+        
+        // Animate camera movement
+        const startTime = Date.now();
+        const duration = 1000;
+        
+        const animateCamera = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const easeInOut = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+            
+            this.camera.position.lerpVectors(currentPosition, targetPosition, easeInOut);
+            this.camera.lookAt(0, 0, 0);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animateCamera);
+            }
+        };
+        
+        animateCamera();
+    }
+    
+    vector3ToLatLng(vector) {
+        const normalized = vector.clone().normalize();
+        const lat = Math.asin(normalized.y) * 180 / Math.PI;
+        const lng = Math.atan2(normalized.z, normalized.x) * 180 / Math.PI;
+        return { lat, lng };
+    }
+    
+    resetSelection(mesh) {
+        if (mesh && mesh.material) {
+            mesh.material.emissiveIntensity = 0.1;
+            mesh.scale.setScalar(1);
+        }
+    }
+    
+    highlightSelection(mesh) {
+        if (mesh && mesh.material) {
+            mesh.material.emissiveIntensity = 0.5;
+            mesh.scale.setScalar(1.5);
         }
     }
 
@@ -848,42 +1064,184 @@ export class Visualization {
             document.body.appendChild(tooltip);
         }
         
-        // Handle both individual members and clusters
-        if (dataPoint.isCluster && dataPoint.memberCount > 1) {
+        // Handle test data differently
+        if (dataPoint.isTest) {
             tooltip.innerHTML = `
-                <div class="tooltip-title">Data Cluster</div>
+                <div class="tooltip-header">
+                    <div class="tooltip-title">Test Location</div>
+                </div>
                 <div class="tooltip-content">
-                    <strong>Members: ${dataPoint.memberCount}</strong><br>
-                    Industry: ${dataPoint.industryCategory || 'Mixed'}<br>
-                    Location: ${dataPoint.fullLocation || 'Multiple locations'}<br>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">Name:</span>
+                        <span class="tooltip-value">${dataPoint.name || 'Unknown'}</span>
+                    </div>
+                </div>
+            `;
+        }
+        // Handle both individual members and clusters
+        else if (dataPoint.isCluster && dataPoint.memberCount > 1) {
+            tooltip.innerHTML = `
+                <div class="tooltip-header">
+                    <div class="tooltip-title">Cluster</div>
+                    <div class="tooltip-badge">${dataPoint.memberCount} members</div>
+                </div>
+                <div class="tooltip-content">
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">Industry:</span>
+                        <span class="tooltip-value">${dataPoint.industryCategory || 'Mixed'}</span>
+                    </div>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">Location:</span>
+                        <span class="tooltip-value">${dataPoint.fullLocation || 'Multiple locations'}</span>
+                    </div>
                     ${dataPoint.industries && dataPoint.industries.length > 1 ? 
-                        `<br><small>Industries: ${dataPoint.industries.slice(0, 3).join(', ')}${dataPoint.industries.length > 3 ? '...' : ''}</small>` : 
+                        `<div class="tooltip-row">
+                            <span class="tooltip-label">Industries:</span>
+                            <span class="tooltip-value">${dataPoint.industries.slice(0, 3).join(', ')}${dataPoint.industries.length > 3 ? '...' : ''}</span>
+                        </div>` : 
                         ''}
+                </div>
+                <div class="tooltip-footer">
+                    <small>Click to expand cluster</small>
                 </div>
             `;
         } else {
+            // Individual member
             tooltip.innerHTML = `
-                <div class="tooltip-title">${dataPoint.role || 'HTW Community Member'}</div>
+                <div class="tooltip-header">
+                    <div class="tooltip-title">${dataPoint.role || dataPoint.name || 'HTW Member'}</div>
+                </div>
                 <div class="tooltip-content">
-                    Industry: ${dataPoint.industryCategory || 'Not specified'}<br>
-                    Location: ${dataPoint.fullLocation || 'Not specified'}<br>
-                    ${dataPoint.group ? `Group: ${dataPoint.group}<br>` : ''}
-                    ${dataPoint.company ? `Company: ${dataPoint.company}` : ''}
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">Industry:</span>
+                        <span class="tooltip-value">${dataPoint.industryCategory || 'Not specified'}</span>
+                    </div>
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">Location:</span>
+                        <span class="tooltip-value">${dataPoint.fullLocation || dataPoint.location || 'Not specified'}</span>
+                    </div>
+                    ${dataPoint.group ? 
+                        `<div class="tooltip-row">
+                            <span class="tooltip-label">Group:</span>
+                            <span class="tooltip-value">${dataPoint.group}</span>
+                        </div>` : ''}
+                    ${dataPoint.company ? 
+                        `<div class="tooltip-row">
+                            <span class="tooltip-label">Company:</span>
+                            <span class="tooltip-value">${dataPoint.company}</span>
+                        </div>` : ''}
                 </div>
             `;
         }
         
         tooltip.style.display = 'block';
-        tooltip.style.left = event.clientX + 10 + 'px';
-        tooltip.style.top = event.clientY + 10 + 'px';
+        tooltip.style.left = event.clientX + 15 + 'px';
+        tooltip.style.top = event.clientY + 15 + 'px';
+        tooltip.classList.add('visible');
+    }
+    
+    showDetailedTooltip(event, dataPoint) {
+        // Show a more detailed tooltip for selected individual points
+        if (!dataPoint) {
+            console.warn('No dataPoint provided to showDetailedTooltip');
+            return;
+        }
+        
+        let tooltip = document.getElementById('tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.id = 'tooltip';
+            tooltip.className = 'tooltip detailed';
+            document.body.appendChild(tooltip);
+        }
+        
+        tooltip.className = 'tooltip detailed';
+        
+        // Handle test data differently
+        if (dataPoint.isTest) {
+            tooltip.innerHTML = `
+                <div class="tooltip-header">
+                    <div class="tooltip-title">Test Location</div>
+                    <div class="tooltip-status">Selected</div>
+                </div>
+                <div class="tooltip-content">
+                    <div class="tooltip-section">
+                        <div class="tooltip-row">
+                            <span class="tooltip-label">Name:</span>
+                            <span class="tooltip-value">${dataPoint.name || 'Unknown'}</span>
+                        </div>
+                        <div class="tooltip-row">
+                            <span class="tooltip-label">Type:</span>
+                            <span class="tooltip-value">Test Point</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Regular member data
+            tooltip.innerHTML = `
+                <div class="tooltip-header">
+                    <div class="tooltip-title">${dataPoint.role || dataPoint.name || 'HTW Community Member'}</div>
+                    <div class="tooltip-status">Selected</div>
+                </div>
+                <div class="tooltip-content">
+                    <div class="tooltip-section">
+                        <div class="tooltip-row">
+                            <span class="tooltip-label">Industry:</span>
+                            <span class="tooltip-value">${dataPoint.industryCategory || 'Not specified'}</span>
+                        </div>
+                        <div class="tooltip-row">
+                            <span class="tooltip-label">Location:</span>
+                            <span class="tooltip-value">${dataPoint.fullLocation || dataPoint.location || 'Not specified'}</span>
+                        </div>
+                        ${dataPoint.group ? 
+                            `<div class="tooltip-row">
+                                <span class="tooltip-label">Group:</span>
+                                <span class="tooltip-value">${dataPoint.group}</span>
+                            </div>` : ''}
+                        ${dataPoint.company ? 
+                            `<div class="tooltip-row">
+                                <span class="tooltip-label">Company:</span>
+                                <span class="tooltip-value">${dataPoint.company}</span>
+                            </div>` : ''}
+                    </div>
+                    ${dataPoint.interests || dataPoint.skills ? 
+                        `<div class="tooltip-section">
+                            <div class="tooltip-subtitle">Additional Info</div>
+                            ${dataPoint.interests ? 
+                                `<div class="tooltip-row">
+                                    <span class="tooltip-label">Interests:</span>
+                                    <span class="tooltip-value">${dataPoint.interests}</span>
+                                </div>` : ''}
+                            ${dataPoint.skills ? 
+                                `<div class="tooltip-row">
+                                    <span class="tooltip-label">Skills:</span>
+                                    <span class="tooltip-value">${dataPoint.skills}</span>
+                                </div>` : ''}
+                        </div>` : ''}
+                </div>
+                <div class="tooltip-footer">
+                    <small>Member ID: ${dataPoint.id || 'N/A'}</small>
+                </div>
+            `;
+        }
+        
+        tooltip.style.display = 'block';
+        tooltip.style.left = event.clientX + 15 + 'px';
+        tooltip.style.top = event.clientY + 15 + 'px';
         tooltip.classList.add('visible');
     }
 
     hideTooltip() {
         const tooltip = document.getElementById('tooltip');
         if (tooltip) {
-            tooltip.style.display = 'none';
             tooltip.classList.remove('visible');
+            tooltip.classList.remove('detailed');
+            setTimeout(() => {
+                if (!tooltip.classList.contains('visible')) {
+                    tooltip.style.display = 'none';
+                }
+            }, 200); // Match the CSS transition duration
         }
     }
 
