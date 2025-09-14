@@ -17,9 +17,11 @@ export class DataLoader {
             maxRenderPoints: 2000,
             adaptiveDetail: true,
             lodDistances: {
-                high: 50,
-                medium: 150,
-                low: 300
+                veryHigh: 25,   // Show all individual points (very close zoom)
+                high: 50,       // Show clusters of 2+ and individuals  
+                medium: 90,     // Show clusters of 3+ only
+                low: 150,       // Show clusters of 5+ only
+                veryLow: 250    // Show only major clusters (10+)
             }
         };
         
@@ -70,20 +72,30 @@ export class DataLoader {
             const representative = points[0];
             const coordinates = await this.getLocationCoordinates(representative);
             
-            if (points.length === 1) {
-                // Single point - add directly
-                this.clusteredData.push({
-                    ...representative,
-                    id: `cluster_${clusterId++}`,
-                    coordinates,
-                    isCluster: false,
-                    memberCount: 1,
-                    members: [representative],
-                    industries: [representative.industryCategory],
-                    roles: [representative.group]
+            // Check if this is a Hawaii location
+            const isHawaiiLocation = representative.state === 'HI' || 
+                                   (representative.country === 'USA' && 
+                                    representative.city && 
+                                    representative.city.toLowerCase().includes('honolulu'));
+            
+            // Only cluster Hawaii locations with multiple points
+            // All non-Hawaii locations remain as individual points
+            if (points.length === 1 || !isHawaiiLocation) {
+                // Single point OR non-Hawaii location - always show as individual
+                points.forEach(point => {
+                    this.clusteredData.push({
+                        ...point,
+                        id: `point_${clusterId++}`,
+                        coordinates,
+                        isCluster: false,
+                        memberCount: 1,
+                        members: [point],
+                        industries: [point.industryCategory],
+                        roles: [point.group]
+                    });
                 });
             } else {
-                // Multiple points - create cluster
+                // Multiple points in Hawaii - create cluster
                 const industries = [...new Set(points.map(p => p.industryCategory))];
                 const roles = [...new Set(points.map(p => p.group))];
                 
@@ -134,8 +146,8 @@ export class DataLoader {
     getApproximateCoordinates(dataPoint) {
         const { city, state, country } = dataPoint;
         
-        // Hawaii locations (most common)
-        if (state === 'HI' || country === 'USA') {
+        // Hawaii locations (specific state check)
+        if (state === 'HI') {
             if (city && city.toLowerCase().includes('honolulu')) {
                 return { lat: 21.3099, lng: -157.8581 };
             }
@@ -148,11 +160,11 @@ export class DataLoader {
             if (city && city.toLowerCase().includes('pearl')) {
                 return { lat: 21.3891, lng: -157.9750 };
             }
-            // Default Hawaii
+            // Default Hawaii for HI state
             return { lat: 21.3099, lng: -157.8581 };
         }
 
-        // US Mainland major cities
+        // US Mainland major cities (excluding Hawaii)
         if (country === 'USA') {
             if (state === 'CA') return { lat: 37.7749, lng: -122.4194 }; // San Francisco
             if (state === 'NY') return { lat: 40.7128, lng: -74.0060 };  // New York
@@ -161,6 +173,17 @@ export class DataLoader {
             if (state === 'FL') return { lat: 25.7617, lng: -80.1918 };  // Miami
             if (state === 'IL') return { lat: 41.8781, lng: -87.6298 };  // Chicago
             if (state === 'OR') return { lat: 45.5152, lng: -122.6784 }; // Portland
+            if (state === 'MA') return { lat: 42.3601, lng: -71.0589 };  // Boston
+            if (state === 'CO') return { lat: 39.7392, lng: -104.9903 }; // Denver
+            if (state === 'GA') return { lat: 33.7490, lng: -84.3880 };  // Atlanta
+            if (state === 'NC') return { lat: 35.7796, lng: -78.6382 };  // Raleigh
+            if (state === 'VA') return { lat: 38.9072, lng: -77.0369 };  // DC area
+            if (state === 'AZ') return { lat: 33.4484, lng: -112.0740 }; // Phoenix
+            if (state === 'NV') return { lat: 36.1699, lng: -115.1398 }; // Las Vegas
+            if (state === 'UT') return { lat: 40.7608, lng: -111.8910 }; // Salt Lake City
+            
+            // Default for other US states (center of continental US)
+            return { lat: 39.8283, lng: -98.5795 }; // Geographic center of US
         }
 
         // International locations
@@ -171,9 +194,14 @@ export class DataLoader {
         if (country === 'Singapore') return { lat: 1.3521, lng: 103.8198 };
         if (country === 'Germany') return { lat: 52.5200, lng: 13.4050 }; // Berlin
         if (country === 'France') return { lat: 48.8566, lng: 2.3522 }; // Paris
+        if (country === 'Netherlands') return { lat: 52.3676, lng: 4.9041 }; // Amsterdam
+        if (country === 'India') return { lat: 28.6139, lng: 77.2090 }; // Delhi
+        if (country === 'China') return { lat: 39.9042, lng: 116.4074 }; // Beijing
+        if (country === 'Brazil') return { lat: -23.5505, lng: -46.6333 }; // São Paulo
+        if (country === 'Mexico') return { lat: 19.4326, lng: -99.1332 }; // Mexico City
 
-        // Default to Honolulu for unknown locations
-        return { lat: 21.3099, lng: -157.8581 };
+        // Default to geographic center of world (good fallback)
+        return { lat: 0, lng: 0 };
     }
 
     processData(data) {
@@ -361,15 +389,22 @@ export class DataLoader {
     applyLevelOfDetail(data, cameraDistance) {
         const { lodDistances } = this.performanceConfig;
         
-        if (cameraDistance <= lodDistances.high) {
-            // Close view - show all points
+        // For Hawaii-centric data, we want to be more generous with showing details
+        if (cameraDistance <= lodDistances.veryHigh) {
+            // Very close view - show absolutely everything
+            return data;
+        } else if (cameraDistance <= lodDistances.high) {
+            // Close view - show all points (individuals + clusters)
             return data;
         } else if (cameraDistance <= lodDistances.medium) {
-            // Medium view - show clusters with 2+ members
-            return data.filter(point => point.memberCount >= 2);
+            // Medium view - show clusters with 2+ members (mostly Hawaii clusters)
+            return data.filter(point => point.memberCount >= 2 || !point.isCluster);
+        } else if (cameraDistance <= lodDistances.low) {
+            // Far view - show clusters with 3+ members + all individual points
+            return data.filter(point => point.memberCount >= 3 || !point.isCluster);
         } else {
-            // Far view - show only large clusters (5+ members)
-            return data.filter(point => point.memberCount >= 5);
+            // Very far view - show only larger Hawaii clusters + all individual points
+            return data.filter(point => point.memberCount >= 5 || !point.isCluster);
         }
     }
 

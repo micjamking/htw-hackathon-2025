@@ -46,7 +46,19 @@ export class Visualization {
             'Other': this.brandColors.gray              // Gray
         };
 
+        // Get color for industry category  
+        this.getIndustryColor = (industryCategory) => {
+            return this.industryColors[industryCategory] || this.industryColors['Other'];
+        };
+
         // Performance optimization settings
+        this.setupPerformanceSettings();
+        
+        // Initialize material pool
+        this.initializeMaterialPool();
+    }
+
+    setupPerformanceSettings() {
         this.performanceSettings = {
             maxRenderDistance: 500,
             lodEnabled: true,
@@ -437,10 +449,24 @@ export class Visualization {
         this.controls.enableRotate = true;
         this.controls.enablePan = true;
         
-        // Set limits for better UX
-        this.controls.minDistance = 60;  // Prevent zooming too close
+        // Set limits for better UX - allow closer zoom for Hawaii detail
+        this.controls.minDistance = 30;  // Allow much closer zoom for Hawaii clusters
         this.controls.maxDistance = 300; // Prevent zooming too far
         this.controls.maxPolarAngle = Math.PI; // Allow full vertical rotation
+        
+        // Enhanced zoom sensitivity and smoothness
+        this.controls.zoomSpeed = 0.6;
+        this.controls.rotateSpeed = 0.5;
+        this.controls.panSpeed = 0.8;
+        
+        // Add dynamic clustering based on zoom level
+        this.lastCameraDistance = this.camera.position.distanceTo(this.controls.target);
+        this.zoomUpdateThreshold = 3; // Update visualization when zoom changes by this amount (reduced for more responsiveness)
+        
+        // Add change listener for dynamic clustering
+        this.controls.addEventListener('change', () => {
+            this.onCameraChange();
+        });
         
         // Setup event listeners for interaction
         this.setupEventListeners();
@@ -825,6 +851,113 @@ export class Visualization {
         const clusterData = clusterMesh.userData.originalData;
         const clusterPosition = clusterMesh.position.clone();
         
+        // Enhanced cluster expansion with proper member visualization
+        if (clusterData.coordinates && clusterData.members && clusterData.members.length > 1) {
+            console.log(`🔍 Expanding cluster: ${clusterData.memberCount} members at ${clusterData.fullLocation}`);
+            
+            // Remove the cluster mesh from the scene
+            this.dataPoints.remove(clusterMesh);
+            
+            // Create individual points for each cluster member
+            this.createExpandedClusterMembers(clusterData, clusterPosition);
+            
+            // Animate camera to zoom into the cluster area
+            this.focusOnCluster(clusterData, 40); // Zoom even closer to see individual members
+            
+            // Show immediate feedback
+            this.showClusterExpansionFeedback(clusterData);
+            
+            // Mark this cluster as expanded to prevent re-clustering
+            this.expandedClusters = this.expandedClusters || new Set();
+            this.expandedClusters.add(clusterData.id);
+            
+        } else {
+            // Fallback for clusters without proper member data
+            this.legacyExpandCluster(clusterMesh);
+        }
+    }
+    
+    // Create individual member points from a cluster
+    createExpandedClusterMembers(clusterData, centerPosition) {
+        const members = clusterData.members;
+        const spreadRadius = Math.min(members.length * 0.3, 3); // Spread members in a small area
+        
+        members.forEach((member, index) => {
+            // Calculate position around the cluster center
+            const angle = (index / members.length) * Math.PI * 2;
+            const distance = (index === 0) ? 0 : (Math.random() * spreadRadius);
+            
+            const offsetX = Math.cos(angle) * distance;
+            const offsetY = Math.sin(angle) * distance;
+            const offsetZ = (Math.random() - 0.5) * 0.5; // Small vertical spread
+            
+            const memberPosition = centerPosition.clone();
+            memberPosition.x += offsetX;
+            memberPosition.y += offsetY;
+            memberPosition.z += offsetZ;
+            
+            // Create individual member visualization
+            const geometry = new THREE.SphereGeometry(0.8, 12, 12); // Smaller individual points
+            const material = new THREE.MeshBasicMaterial({ 
+                color: this.getIndustryColor(member.industryCategory),
+                transparent: true,
+                opacity: 0.9
+            });
+            
+            const memberMesh = new THREE.Mesh(geometry, material);
+            memberMesh.position.copy(memberPosition);
+            
+            // Store member data
+            memberMesh.userData = {
+                originalData: member,
+                id: member.id || `member_${index}`,
+                isCluster: false,
+                memberCount: 1,
+                isExpandedMember: true, // Mark as expanded member
+                parentCluster: clusterData.id
+            };
+            
+            // Add to scene
+            this.dataPoints.add(memberMesh);
+            
+            // Add entrance animation
+            memberMesh.scale.setScalar(0);
+            const targetScale = 1;
+            const animationDelay = index * 50; // Stagger animations
+            
+            setTimeout(() => {
+                this.animatePointEntrance(memberMesh, targetScale);
+            }, animationDelay);
+        });
+        
+        console.log(`✅ Expanded cluster into ${members.length} individual member points`);
+    }
+    
+    // Animate point entrance
+    animatePointEntrance(mesh, targetScale) {
+        const startTime = Date.now();
+        const duration = 500;
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const easeOut = 1 - Math.pow(1 - progress, 3);
+            
+            mesh.scale.setScalar(easeOut * targetScale);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+        
+        animate();
+    }
+    
+    // Legacy cluster expansion method (kept as fallback)
+    legacyExpandCluster(clusterMesh) {
+        const clusterData = clusterMesh.userData.originalData;
+        const clusterPosition = clusterMesh.position.clone();
+        
         // Remove the cluster mesh
         this.dataPoints.remove(clusterMesh);
         
@@ -848,6 +981,36 @@ export class Visualization {
                 ).length
             }
         }));
+    }
+    
+    // Show visual feedback during cluster expansion
+    showClusterExpansionFeedback(clusterData) {
+        // Create a temporary notification
+        const notification = document.createElement('div');
+        notification.className = 'cluster-expansion-notification';
+        notification.innerHTML = `
+            <div class="notification-content">
+                <div class="notification-title">Expanding Cluster</div>
+                <div class="notification-details">
+                    ${clusterData.memberCount} members in ${clusterData.fullLocation}
+                </div>
+                <div class="notification-progress">
+                    <div class="progress-bar"></div>
+                </div>
+            </div>
+        `;
+        
+        // Add to page
+        document.body.appendChild(notification);
+        
+        // Animate in
+        setTimeout(() => notification.classList.add('visible'), 100);
+        
+        // Remove after expansion completes
+        setTimeout(() => {
+            notification.classList.remove('visible');
+            setTimeout(() => document.body.removeChild(notification), 300);
+        }, 1500);
     }
     
     createExpandedClusterPoints(members, centerPosition) {
@@ -1258,6 +1421,94 @@ export class Visualization {
         // Update data and recreate visualization
         this.currentData = newData;
         this.createDataVisualization(newData);
+    }
+
+    // Set the data loader reference for dynamic clustering
+    setDataLoader(dataLoader) {
+        this.dataLoader = dataLoader;
+    }
+
+    // Handle camera changes for dynamic clustering
+    onCameraChange() {
+        if (!this.currentData || !this.dataLoader) return;
+        
+        const currentDistance = this.camera.position.distanceTo(this.controls.target);
+        const distanceChange = Math.abs(currentDistance - this.lastCameraDistance);
+        
+        // Only update if significant zoom change to avoid constant re-rendering
+        if (distanceChange > this.zoomUpdateThreshold) {
+            this.lastCameraDistance = currentDistance;
+            this.updateVisualizationForZoom(currentDistance);
+        }
+    }
+
+    // Update visualization based on current zoom level
+    updateVisualizationForZoom(cameraDistance) {
+        if (!this.dataLoader || !this.currentData) return;
+        
+        // Get filtered data based on current camera distance
+        const filteredData = this.dataLoader.getFilteredData({}, cameraDistance);
+        
+        // Only update if the data has actually changed
+        if (filteredData.length !== this.dataPoints.children.length) {
+            console.log(`🔍 Zoom level changed - updating visualization: ${filteredData.length} points at distance ${cameraDistance.toFixed(1)}`);
+            this.createDataVisualization(filteredData, cameraDistance);
+        }
+    }
+
+    // Animate camera to focus on a specific point or cluster
+    focusOnCluster(clusterData, zoomLevel = 80) {
+        if (!clusterData.coordinates) return;
+        
+        const targetLookAt = this.latLngToVector3(
+            clusterData.coordinates.lat,
+            clusterData.coordinates.lng,
+            50.5  // Globe surface
+        );
+        
+        const targetPosition = this.latLngToVector3(
+            clusterData.coordinates.lat,
+            clusterData.coordinates.lng,
+            zoomLevel  // Camera distance from globe surface
+        );
+        
+        // Smooth camera transition
+        this.animateCameraTo(targetPosition, targetLookAt);
+        
+        // Trigger cluster expansion after animation
+        setTimeout(() => {
+            this.updateVisualizationForZoom(zoomLevel);
+        }, 1000);
+    }
+
+    // Smooth camera animation
+    animateCameraTo(targetPosition, targetLookAt, duration = 1000) {
+        const startPosition = this.camera.position.clone();
+        const startLookAt = this.controls.target.clone();
+        const startTime = Date.now();
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Easing function for smooth animation
+            const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            const easedProgress = easeInOut(progress);
+            
+            // Interpolate camera position
+            this.camera.position.lerpVectors(startPosition, targetPosition, easedProgress);
+            
+            // Interpolate look-at target
+            const currentLookAt = new THREE.Vector3().lerpVectors(startLookAt, targetLookAt, easedProgress);
+            this.controls.target.copy(currentLookAt);
+            this.controls.update();
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+        
+        animate();
     }
 
     resetCamera() {

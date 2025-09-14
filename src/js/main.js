@@ -54,6 +54,9 @@ class HTWVisualizationApp {
             this.visualization = new Visualization(container);
             await this.visualization.init();
             
+            // Set the data loader reference for dynamic clustering
+            this.visualization.setDataLoader(this.dataLoader);
+            
             // Load data into visualization
             console.log('Loading data into visualization...');
             await this.visualization.updateData(data);
@@ -75,6 +78,11 @@ class HTWVisualizationApp {
             setTimeout(() => {
                 Utils.hideLoadingScreen();
                 console.log('HTW Community Visualization ready!');
+                
+                // Dispatch app ready event for zoom controls
+                document.dispatchEvent(new CustomEvent('appReady', {
+                    detail: { app: this }
+                }));
                 
                 // Track initialization
                 Utils.trackEvent('App', 'Initialized', 'Success', data.length);

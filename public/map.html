@@ -592,6 +592,63 @@
         }
     </script>
     
+    <!-- Enhanced Zoom Controls -->
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-in" title="Zoom In">+</button>
+        <button class="zoom-btn" id="zoom-out" title="Zoom Out">−</button>
+        <button class="zoom-btn" id="zoom-reset" title="Reset View">⌂</button>
+    </div>
+    
+    <script>
+        // Enhanced zoom controls functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const zoomInBtn = document.getElementById('zoom-in');
+            const zoomOutBtn = document.getElementById('zoom-out');
+            const zoomResetBtn = document.getElementById('zoom-reset');
+            
+            // Add zoom control event listeners when app is ready
+            if (window.htwApp) {
+                setupZoomControls();
+            } else {
+                // Wait for app to initialize
+                document.addEventListener('appReady', setupZoomControls);
+            }
+            
+            function setupZoomControls() {
+                const visualization = window.htwApp?.getVisualization();
+                if (!visualization) return;
+                
+                zoomInBtn?.addEventListener('click', () => {
+                    const controls = visualization.controls;
+                    const direction = controls.target.clone().sub(controls.object.position).normalize();
+                    const distance = controls.object.position.distanceTo(controls.target);
+                    const newDistance = Math.max(distance - 20, controls.minDistance);
+                    
+                    controls.object.position.copy(
+                        controls.target.clone().sub(direction.multiplyScalar(newDistance))
+                    );
+                    controls.update();
+                });
+                
+                zoomOutBtn?.addEventListener('click', () => {
+                    const controls = visualization.controls;
+                    const direction = controls.target.clone().sub(controls.object.position).normalize();
+                    const distance = controls.object.position.distanceTo(controls.target);
+                    const newDistance = Math.min(distance + 20, controls.maxDistance);
+                    
+                    controls.object.position.copy(
+                        controls.target.clone().sub(direction.multiplyScalar(newDistance))
+                    );
+                    controls.update();
+                });
+                
+                zoomResetBtn?.addEventListener('click', () => {
+                    visualization.resetCamera();
+                });
+            }
+        });
+    </script>
+    
     
 </body>
 </html>
