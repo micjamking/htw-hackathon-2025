@@ -684,7 +684,7 @@ body {
     }
     
     .hero-container {
-        padding: var(--space-2xl) var(--space-md);
+        padding: var(--space-4xl) var(--space-md);
     }
     
     .hero-metrics {
