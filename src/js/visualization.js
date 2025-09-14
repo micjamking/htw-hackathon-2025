@@ -552,8 +552,8 @@ export class Visualization {
                 pointMesh.userData.originalScale = scale;
             }
 
-            // Add directly to scene (dataPoints group had visibility issues)
-            this.scene.add(pointMesh);
+            // Add to dataPoints group instead of directly to scene
+            this.dataPoints.add(pointMesh);
             processedCount++;
         });
 
@@ -567,13 +567,10 @@ export class Visualization {
         console.log(`Camera looking at:`, this.camera.target ? 'target set' : 'default (0,0,0)');
         console.log(`Globe position:`, this.globe ? this.globe.position : 'Globe not found');
         
-        // Now that data points are added directly to scene, they should be visible!
+        // Now that data points are added to dataPoints group, they should be visible!
         
-        // DEBUG: If no data points were created, add manual test points
-        if (this.dataPoints.children.length === 0) {
-            console.log('🔧 NO DATA POINTS CREATED - Adding manual test points');
-            this.addManualTestPoints();
-        }
+        // Log final status
+        console.log(`✅ Real data visualization complete: ${this.dataPoints.children.length} data points loaded`);
         
         // Debug: log positions of first few data points
         if (this.dataPoints.children.length > 0) {
@@ -646,35 +643,6 @@ export class Visualization {
         const y = (radius * Math.cos(phi));
 
         return new THREE.Vector3(x, y, z);
-    }
-
-    // DEBUG: Add manual test points to isolate data loading issues
-    addManualTestPoints() {
-        console.log('Adding manual test data points...');
-        
-        const testGeometry = new THREE.SphereGeometry(8, 16, 16);
-        const testMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Bright green
-        
-        // Create test points at known geographic locations
-        const testLocations = [
-            { lat: 40.7128, lng: -74.0060, name: "New York" },      // New York City
-            { lat: 51.5074, lng: -0.1278, name: "London" },        // London
-            { lat: 35.6762, lng: 139.6503, name: "Tokyo" },        // Tokyo
-            { lat: -33.8688, lng: 151.2093, name: "Sydney" },      // Sydney
-            { lat: 37.7749, lng: -122.4194, name: "San Francisco" } // San Francisco
-        ];
-        
-        testLocations.forEach((location, index) => {
-            const position = this.latLngToVector3(location.lat, location.lng, 65);
-            const testPoint = new THREE.Mesh(testGeometry, testMaterial);
-            testPoint.position.copy(position);
-            testPoint.userData = { name: location.name, isTest: true };
-            
-            this.dataPoints.add(testPoint);
-            console.log(`Manual test point ${index} (${location.name}) added at:`, position);
-        });
-        
-        console.log(`Manual test points added. DataPoints group now has: ${this.dataPoints.children.length} children`);
     }
 
     // Clear existing data points with performance optimization
@@ -1064,22 +1032,8 @@ export class Visualization {
             document.body.appendChild(tooltip);
         }
         
-        // Handle test data differently
-        if (dataPoint.isTest) {
-            tooltip.innerHTML = `
-                <div class="tooltip-header">
-                    <div class="tooltip-title">Test Location</div>
-                </div>
-                <div class="tooltip-content">
-                    <div class="tooltip-row">
-                        <span class="tooltip-label">Name:</span>
-                        <span class="tooltip-value">${dataPoint.name || 'Unknown'}</span>
-                    </div>
-                </div>
-            `;
-        }
         // Handle both individual members and clusters
-        else if (dataPoint.isCluster && dataPoint.memberCount > 1) {
+        if (dataPoint.isCluster && dataPoint.memberCount > 1) {
             tooltip.innerHTML = `
                 <div class="tooltip-header">
                     <div class="tooltip-title">Cluster</div>
@@ -1157,38 +1111,17 @@ export class Visualization {
         
         tooltip.className = 'tooltip detailed';
         
-        // Handle test data differently
-        if (dataPoint.isTest) {
-            tooltip.innerHTML = `
-                <div class="tooltip-header">
-                    <div class="tooltip-title">Test Location</div>
-                    <div class="tooltip-status">Selected</div>
-                </div>
-                <div class="tooltip-content">
-                    <div class="tooltip-section">
-                        <div class="tooltip-row">
-                            <span class="tooltip-label">Name:</span>
-                            <span class="tooltip-value">${dataPoint.name || 'Unknown'}</span>
-                        </div>
-                        <div class="tooltip-row">
-                            <span class="tooltip-label">Type:</span>
-                            <span class="tooltip-value">Test Point</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        } else {
-            // Regular member data
-            tooltip.innerHTML = `
-                <div class="tooltip-header">
-                    <div class="tooltip-title">${dataPoint.role || dataPoint.name || 'HTW Community Member'}</div>
-                    <div class="tooltip-status">Selected</div>
-                </div>
-                <div class="tooltip-content">
-                    <div class="tooltip-section">
-                        <div class="tooltip-row">
-                            <span class="tooltip-label">Industry:</span>
-                            <span class="tooltip-value">${dataPoint.industryCategory || 'Not specified'}</span>
+        // Regular member data
+        tooltip.innerHTML = `
+            <div class="tooltip-header">
+                <div class="tooltip-title">${dataPoint.role || dataPoint.name || 'HTW Community Member'}</div>
+                <div class="tooltip-status">Selected</div>
+            </div>
+            <div class="tooltip-content">
+                <div class="tooltip-section">
+                    <div class="tooltip-row">
+                        <span class="tooltip-label">Industry:</span>
+                        <span class="tooltip-value">${dataPoint.industryCategory || 'Not specified'}</span>
                         </div>
                         <div class="tooltip-row">
                             <span class="tooltip-label">Location:</span>
@@ -1224,7 +1157,6 @@ export class Visualization {
                     <small>Member ID: ${dataPoint.id || 'N/A'}</small>
                 </div>
             `;
-        }
         
         tooltip.style.display = 'block';
         tooltip.style.left = event.clientX + 15 + 'px';

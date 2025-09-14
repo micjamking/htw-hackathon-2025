@@ -592,49 +592,6 @@
         }
     </script>
     
-    <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r157/three.min.js"></script>
-    <!-- Visualization script -->
-    <script src="../src/js/visualization.js"></script>
-    <script>
-        // Initialize the visualization when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check if Three.js is loaded
-            if (typeof THREE === 'undefined') {
-                console.error('Three.js failed to load');
-                return;
-            }
-            
-            // Check if HTWVisualization class is available
-            if (typeof HTWVisualization === 'undefined') {
-                console.error('HTWVisualization class not found');
-                return;
-            }
-            
-            try {
-                const container = document.getElementById('visualization-container');
-                if (!container) {
-                    console.error('Visualization container not found');
-                    return;
-                }
-                
-                const viz = new HTWVisualization(container);
-                viz.init();
-                
-                // Dispatch initial data for footer stats
-                setTimeout(() => {
-                    document.dispatchEvent(new CustomEvent('dataLoaded', {
-                        detail: {
-                            totalMembers: 2340,
-                            activeClusters: 12
-                        }
-                    }));
-                }, 2000); // Wait for data to load
-                
-            } catch (error) {
-                console.error('Failed to initialize visualization:', error);
-            }
-        });
-    </script>
+    
 </body>
 </html>

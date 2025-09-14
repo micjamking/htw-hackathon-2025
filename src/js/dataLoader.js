@@ -1,51 +1,47 @@
-import csvData from '@data/HTW2025Audience.csv';
 import * as d3 from 'd3';
+import csvData from '@data/HTW2025Audience.csv';
 
 export class DataLoader {
     constructor() {
         this.rawData = null;
         this.processedData = null;
-        this.clusteredData = null; // Performance-optimized clustered data
+        this.clusteredData = null;
+        
+        // Collections for filter options
         this.industries = new Set();
         this.cities = new Set();
         this.roles = new Set();
         
         // Performance configuration
         this.performanceConfig = {
-            maxRenderPoints: 500,    // Maximum points to render simultaneously
-            clusterRadius: 100,      // Distance in pixels for clustering
-            minClusterSize: 3,       // Minimum points to form a cluster
-            adaptiveDetail: true,    // Enable Level of Detail (LOD)
-            lodDistances: {          // Camera distance thresholds
-                high: 50,            // Show individual points
-                medium: 150,         // Show small clusters
-                low: 300             // Show large clusters only
+            maxRenderPoints: 2000,
+            adaptiveDetail: true,
+            lodDistances: {
+                high: 50,
+                medium: 150,
+                low: 300
             }
         };
         
-        // Geographic clustering cache
-        this.locationClusters = new Map();
         this.coordinateCache = new Map();
     }
 
     async loadData() {
         try {
-            // Parse CSV data using D3
-            this.rawData = d3.csvParse(csvData);
-            console.log('Raw data loaded:', this.rawData.length, 'records');
+            console.log('Parsing CSV data...');
+            const parsedData = d3.csvParse(csvData);
+            this.rawData = parsedData;
             
-            // Process and clean the data
+            console.log('Processing raw data...');
             this.processedData = this.processData(this.rawData);
-            console.log('Processed data:', this.processedData.length, 'records');
             
-            // Create performance-optimized clustered data
+            console.log('Creating clustered data for performance...');
             await this.createClusteredData();
-            console.log('Clustered data created:', this.clusteredData.length, 'render points');
             
-            return this.clusteredData; // Return optimized data for rendering
+            return this.clusteredData;
         } catch (error) {
-            console.error('Error loading data:', error);
-            throw error;
+            console.error('Error loading or processing data:', error);
+            throw new Error('Failed to load community data. Please check the data source and format.');
         }
     }
 
