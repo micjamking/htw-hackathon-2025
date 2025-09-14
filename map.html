@@ -1,0 +1,471 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="cache-control" content="no-cache"><meta http-equiv="expires" content="0"><meta http-equiv="pragma" content="no-cache"><title>HTW Community 3D Visualization</title><meta name="description" content="Interactive 3D visualization of the HTW Community network"><link rel="icon" type="image/x-icon" href="/favicon.ico"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"><style>/* Navigation styles for map page */
+        .map-nav-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(0, 20, 40, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            transition: all 0.3s ease;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        .map-nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .map-nav-brand {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+        
+        .map-brand-text {
+            font-family: 'IBM Plex Sans Condensed', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #00D4FF;
+            letter-spacing: -0.02em;
+            text-decoration: none;
+            transition: opacity 0.2s ease;
+        }
+        
+        .map-brand-text:hover {
+            opacity: 0.8;
+        }
+        
+        .map-brand-subtitle {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: rgba(0, 212, 255, 0.7);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .map-nav-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .map-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        .map-nav-link:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.5);
+            color: #00D4FF;
+            transform: translateY(-1px);
+        }
+        
+        .map-nav-icon {
+            font-size: 1rem;
+        }
+        
+        .map-controls-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            background: none;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+        
+        .map-controls-toggle:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.5);
+            color: #00D4FF;
+            transform: translateY(-1px);
+        }
+        
+        .map-controls-toggle.active {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00D4FF;
+            color: #00D4FF;
+        }
+        
+        /* Enhanced Tooltips with HTW Design System */
+        .tooltip {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'IBM Plex Sans Condensed', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            color: white;
+            pointer-events: none;
+            z-index: 10000;
+            max-width: 280px;
+            min-width: 200px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .tooltip.detailed {
+            max-width: 320px;
+            min-width: 250px;
+            border-color: rgba(0, 212, 255, 0.5);
+            background: rgba(0, 0, 0, 0.95);
+        }
+        
+        .tooltip-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .tooltip-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #00D4FF;
+            line-height: 1.2;
+        }
+        
+        .tooltip-badge {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00D4FF;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .tooltip-status {
+            background: rgba(30, 64, 175, 0.3);
+            color: #1E40AF;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .tooltip-content {
+            margin-bottom: 6px;
+        }
+        
+        .tooltip-section {
+            margin-bottom: 8px;
+        }
+        
+        .tooltip-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .tooltip-subtitle {
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 3px;
+            gap: 8px;
+        }
+        
+        .tooltip-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .tooltip-label {
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.7);
+            white-space: nowrap;
+            min-width: fit-content;
+        }
+        
+        .tooltip-value {
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.95);
+            text-align: right;
+            word-break: break-word;
+        }
+        
+        .tooltip-footer {
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .tooltip-footer small {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.75rem;
+            font-style: italic;
+        }
+        
+        /* Network Statistics Footer */
+        .map-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            border-top: 1px solid rgba(0, 212, 255, 0.2);
+            padding: 8px 16px;
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .map-footer-stats {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        .map-footer-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .map-footer-stat-value {
+            color: #00D4FF;
+            font-weight: 600;
+        }
+        
+        .map-footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+        
+        .map-footer-logo {
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #00D4FF, #1E40AF);
+            border-radius: 2px;
+        }
+        
+        /* Adjust visualization container for footer */
+        #visualization-container {
+            position: relative;
+            height: calc(100vh - 60px - 32px);
+        }
+        
+        @media (max-width: 768px) {
+            .map-footer {
+                padding: 6px 12px;
+                font-size: 0.7rem;
+            }
+            
+            .map-footer-stats {
+                gap: 12px;
+            }
+            
+            #visualization-container {
+                height: calc(100vh - 50px - 28px);
+            }
+        }
+        
+        /* Adjust main content to account for header */
+        #app {
+            padding-top: 60px;
+        }
+        
+        /* Ensure loading screen covers the full viewport */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+        }
+        
+        /* Hide the original controls toggle since it's now in the nav */
+        .controls-toggle {
+            display: none;
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .map-nav-container {
+                padding: 0.5rem 1rem;
+            }
+            
+            .map-brand-text {
+                font-size: 1.25rem;
+            }
+            
+            .map-brand-subtitle {
+                display: none;
+            }
+            
+            .map-back-text {
+                display: none;
+            }
+            
+            .map-controls-text {
+                display: none;
+            }
+            
+            .map-nav-link,
+            .map-controls-toggle {
+                padding: 0.5rem;
+                min-width: 40px;
+                justify-content: center;
+            }
+            
+            #app {
+                padding-top: 50px;
+            }
+            
+            #visualization-container {
+                height: calc(100vh - 50px);
+            }
+        }</style><script defer="defer" src="main.67ed1ff66d5d39668e77.js"></script></head><body><div id="app"><nav class="map-nav-header"><div class="map-nav-container"><div class="map-nav-brand"><a href="/" class="map-brand-text">HTW 2025</a> <span class="map-brand-subtitle">Ohana Network</span></div><div class="map-nav-actions"><button class="map-controls-toggle" id="map-controls-toggle"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> <span class="map-controls-text">Controls</span></button></div></div></nav><div id="loading-screen"><div class="loading-content"><h1>HTW Community</h1><p>Loading 3D visualization...</p><div class="loading-bar"><div class="loading-progress"></div></div></div></div><div id="visualization-container"><canvas id="three-canvas"></canvas></div><div class="controls-sidebar" id="controls-sidebar"><div class="filter-section"><h3 class="filter-title">Visualization Controls</h3><div class="filter-group"><label class="filter-label" for="industry-filter">Industry:</label> <select id="industry-filter" class="filter-select" multiple="multiple"><option value="all">All Industries</option></select></div><div class="filter-group"><label class="filter-label" for="location-filter">Location:</label> <select id="location-filter" class="filter-select" multiple="multiple"><option value="all">All Locations</option></select></div><div class="filter-group"><label class="filter-label" for="role-filter">Role Type:</label> <select id="role-filter" class="filter-select" multiple="multiple"><option value="all">All Roles</option></select></div></div><div class="filter-section"><h3 class="filter-title">View</h3><div class="action-buttons"><button id="reset-camera" class="action-btn">Reset Camera</button> <button id="auto-rotate" class="action-btn toggle-btn">Auto Rotate</button></div></div><div class="filter-section"><h3 class="filter-title">Industry Legend</h3><div class="industry-legend" id="industry-legend"></div></div><div class="filter-section"><h3 class="filter-title">Statistics</h3><div class="stats-panel"><div class="stats-grid"><div class="stat-card"><span class="stat-value" id="total-count">2340</span> <span class="stat-description">Total Members</span></div><div class="stat-card"><span class="stat-value" id="visible-count">2340</span> <span class="stat-description">Visible</span></div></div><div id="selected-info" class="stat-description" style="text-align: center; margin-top: 1rem;">None selected</div></div></div></div><div id="detail-modal" class="modal"><div class="modal-content"><span class="close">&times;</span><div id="modal-body"></div></div></div><footer class="map-footer"><div class="map-footer-stats"><div class="map-footer-stat"><span>Total Members:</span> <span class="map-footer-stat-value" id="total-members">--</span></div><div class="map-footer-stat"><span>Active Clusters:</span> <span class="map-footer-stat-value" id="active-clusters">--</span></div><div class="map-footer-stat"><span>Global Reach:</span> <span class="map-footer-stat-value">150+ Countries</span></div></div><div class="map-footer-brand"><div class="map-footer-logo"></div><span>HTW 2025 Ohana Network</span></div></footer></div><script>// Handle map controls toggle in navigation
+        document.addEventListener('DOMContentLoaded', function() {
+            const mapControlsToggle = document.getElementById('map-controls-toggle');
+            const controlsSidebar = document.getElementById('controls-sidebar');
+            
+            if (mapControlsToggle && controlsSidebar) {
+                mapControlsToggle.addEventListener('click', function() {
+                    controlsSidebar.classList.toggle('open');
+                    mapControlsToggle.classList.toggle('active');
+                });
+                
+                // Close sidebar when clicking outside
+                document.addEventListener('click', function(event) {
+                    if (!controlsSidebar.contains(event.target) && 
+                        !mapControlsToggle.contains(event.target) && 
+                        controlsSidebar.classList.contains('open')) {
+                        controlsSidebar.classList.remove('open');
+                        mapControlsToggle.classList.remove('active');
+                    }
+                });
+            }
+            
+            // Update footer statistics when data loads
+            document.addEventListener('dataLoaded', function(event) {
+                updateFooterStats(event.detail);
+            });
+            
+            // Listen for cluster expansion events
+            document.addEventListener('clusterExpanded', function(event) {
+                updateFooterStats(event.detail);
+            });
+        });
+        
+        function updateFooterStats(data) {
+            if (!data) return;
+            
+            // Count total members and active clusters
+            let totalMembers = 0;
+            let activeClusters = 0;
+            
+            if (Array.isArray(data)) {
+                totalMembers = data.length;
+                activeClusters = data.filter(item => item.isCluster && item.memberCount > 1).length;
+            } else if (data.totalMembers !== undefined) {
+                totalMembers = data.totalMembers;
+                activeClusters = data.activeClusters || 0;
+            }
+            
+            // Update the footer display
+            const totalMembersEl = document.getElementById('total-members');
+            const activeClustersEl = document.getElementById('active-clusters');
+            
+            if (totalMembersEl) {
+                totalMembersEl.textContent = totalMembers.toLocaleString();
+            }
+            if (activeClustersEl) {
+                activeClustersEl.textContent = activeClusters.toLocaleString();
+            }
+        }</script><div class="zoom-controls"><button class="zoom-btn" id="zoom-in" title="Zoom In">+</button> <button class="zoom-btn" id="zoom-out" title="Zoom Out">−</button> <button class="zoom-btn" id="zoom-reset" title="Reset View">⌂</button></div><script>// Enhanced zoom controls functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const zoomInBtn = document.getElementById('zoom-in');
+            const zoomOutBtn = document.getElementById('zoom-out');
+            const zoomResetBtn = document.getElementById('zoom-reset');
+            
+            // Add zoom control event listeners when app is ready
+            if (window.htwApp) {
+                setupZoomControls();
+            } else {
+                // Wait for app to initialize
+                document.addEventListener('appReady', setupZoomControls);
+            }
+            
+            function setupZoomControls() {
+                const visualization = window.htwApp?.getVisualization();
+                if (!visualization) return;
+                
+                zoomInBtn?.addEventListener('click', () => {
+                    const controls = visualization.controls;
+                    const direction = controls.target.clone().sub(controls.object.position).normalize();
+                    const distance = controls.object.position.distanceTo(controls.target);
+                    const newDistance = Math.max(distance - 20, controls.minDistance);
+                    
+                    controls.object.position.copy(
+                        controls.target.clone().sub(direction.multiplyScalar(newDistance))
+                    );
+                    controls.update();
+                });
+                
+                zoomOutBtn?.addEventListener('click', () => {
+                    const controls = visualization.controls;
+                    const direction = controls.target.clone().sub(controls.object.position).normalize();
+                    const distance = controls.object.position.distanceTo(controls.target);
+                    const newDistance = Math.min(distance + 20, controls.maxDistance);
+                    
+                    controls.object.position.copy(
+                        controls.target.clone().sub(direction.multiplyScalar(newDistance))
+                    );
+                    controls.update();
+                });
+                
+                zoomResetBtn?.addEventListener('click', () => {
+                    visualization.resetCamera();
+                });
+            }
+        });</script></body></html>
