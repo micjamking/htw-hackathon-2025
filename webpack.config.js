@@ -43,7 +43,7 @@ export default {
     new HtmlWebpackPlugin({
       template: './public/index.html',
       filename: 'index.html',
-      title: 'HTW 2025 Network Health Dashboard',
+      title: 'HTW 2025 Ohana Network',
       chunks: ['landing'],
     }),
     new HtmlWebpackPlugin({
@@ -54,7 +54,10 @@ export default {
     }),
   ],
   devServer: {
-    static: './dist',
+    static: [
+      './dist',
+      './assets', // Serve assets directory for textures
+    ],
     hot: true,
     open: true,
   },

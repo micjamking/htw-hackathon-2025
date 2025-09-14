@@ -18,6 +18,9 @@ export class Visualization {
         this.selectedObject = null;
         this.cameraDistance = 100;
 
+        // Hawaii center coordinates for connection lines
+        this.hawaiiCenter = { lat: 21.3099, lng: -157.8581 };
+
         // HTW Brand colors from design system
         this.brandColors = {
             primary: 0x00D4FF,      // HTW bright cyan
@@ -153,8 +156,8 @@ export class Visualization {
             0.1, 
             1000
         );
-        // Position camera to view Hawaii region where data points are clustered
-        this.camera.position.set(-80, 40, 80); // Angled toward Hawaii coordinates
+        // Position camera to view Hawaii/Pacific region with US visible (matching the reference image)
+        this.camera.position.set(-90, 25, 45); // Closer Pacific-focused view showing Hawaii and US
         this.camera.lookAt(0, 0, 0); // Still looking at globe center
 
         // Get existing canvas element
@@ -328,30 +331,126 @@ export class Visualization {
     }
 
     createGlobe() {
-        // Create Earth with HTW-branded styling - more refined
+        // Create Earth with HTW-branded styling and world map
         const globeGeometry = new THREE.SphereGeometry(50, 64, 64); // Higher resolution
-        const globeMaterial = new THREE.MeshPhongMaterial({
-            color: this.brandColors.deepSea,
-            transparent: true,
-            opacity: 0.8,
-            wireframe: false,
-            shininess: 100,
-            specular: new THREE.Color(this.brandColors.primary)
+        
+        // Load world map texture with multiple fallbacks
+        const textureLoader = new THREE.TextureLoader();
+        let globeMaterial;
+        
+        // Texture sources in order of preference
+        const textureSources = [
+            'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg', // Original atmospheric texture
+            'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/textures/planets/earth_atmos_2048.jpg'
+        ];
+        
+        let textureLoaded = false;
+        
+        const loadTexture = (sourceIndex = 0) => {
+            if (sourceIndex >= textureSources.length || textureLoaded) {
+                // All sources failed, use solid color fallback
+                console.warn('All texture sources failed, using solid color globe');
+                globeMaterial = new THREE.MeshPhongMaterial({
+                    color: this.brandColors.deepSea,
+                    transparent: true,
+                    opacity: 0.8,
+                    shininess: 100,
+                    specular: new THREE.Color(this.brandColors.primary)
+                });
+                return;
+            }
+            
+            const worldMapTexture = textureLoader.load(
+                textureSources[sourceIndex],
+                // Success callback
+                (texture) => {
+                    if (!textureLoaded) {
+                        textureLoaded = true;
+                        console.log(`World map texture loaded from source ${sourceIndex + 1}:`, textureSources[sourceIndex]);
+                        
+                        // Update globe material with inverted texture
+                        if (this.globe && this.globe.material) {
+                            // Create a custom shader material for inverted texture
+                            const invertedMaterial = new THREE.ShaderMaterial({
+                                uniforms: {
+                                    map: { value: texture },
+                                    lightDirection: { value: new THREE.Vector3(1, 1, 1).normalize() },
+                                    lightColor: { value: new THREE.Color(0xffeaa7) },
+                                    ambientColor: { value: new THREE.Color(0x404040) }
+                                },
+                                vertexShader: `
+                                    varying vec2 vUv;
+                                    varying vec3 vNormal;
+                                    varying vec3 vPosition;
+                                    
+                                    void main() {
+                                        vUv = uv;
+                                        vNormal = normalize(normalMatrix * normal);
+                                        vPosition = position;
+                                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                                    }
+                                `,
+                                fragmentShader: `
+                                    uniform sampler2D map;
+                                    uniform vec3 lightDirection;
+                                    uniform vec3 lightColor;
+                                    uniform vec3 ambientColor;
+                                    varying vec2 vUv;
+                                    varying vec3 vNormal;
+                                    varying vec3 vPosition;
+                                    
+                                    void main() {
+                                        // Sample the texture
+                                        vec4 textureColor = texture2D(map, vUv);
+                                        
+                                        // Convert to grayscale using luminance weights
+                                        // These weights correspond to human eye sensitivity to different colors
+                                        float gray = dot(textureColor.rgb, vec3(0.299, 0.587, 0.114));
+                                        vec3 grayscaleColor = vec3(gray);
+                                        
+                                        // Simple diffuse lighting
+                                        float lightIntensity = max(dot(vNormal, lightDirection), 0.0);
+                                        vec3 finalColor = grayscaleColor * (ambientColor + lightColor * lightIntensity);
+                                        
+                                        gl_FragColor = vec4(textureColor);
+                                    }
+                                `
+                            });
+                            
+                            this.globe.material.dispose(); // Clean up old material
+                            this.globe.material = invertedMaterial;
+                        }
+                    }
+                },
+                // Progress callback
+                undefined,
+                // Error callback
+                (error) => {
+                    console.warn(`Failed to load texture from source ${sourceIndex + 1}:`, textureSources[sourceIndex]);
+                    loadTexture(sourceIndex + 1);
+                }
+            );
+        };
+        
+        // Initial globe material (will be updated when texture loads)
+        globeMaterial = new THREE.MeshPhongMaterial({
+            color: 0xaaccff, // Light blue tint to enhance ocean colors without overpowering texture
+            transparent: false, // Earth should be opaque
+            opacity: 1.0,
+            shininess: 6, // Moderate shine for realistic appearance
+            specular: new THREE.Color(0x1155aa) // Blue specular for ocean reflection
         });
         
+        // Start texture loading
+        loadTexture();
+        
         this.globe = new THREE.Mesh(globeGeometry, globeMaterial);
+        
+        // Align texture with coordinate system
+        // Many Earth textures have 0° longitude at center, but Three.js expects it at edge
+        // this.globe.rotation.y = Math.PI; // 180° rotation to align Prime Meridian
+        
         this.scene.add(this.globe);
-
-        // Add refined wireframe overlay
-        const wireframeGeometry = new THREE.SphereGeometry(50.2, 32, 32);
-        const wireframeMaterial = new THREE.MeshBasicMaterial({
-            color: this.brandColors.primary,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.15
-        });
-        const wireframe = new THREE.Mesh(wireframeGeometry, wireframeMaterial);
-        this.scene.add(wireframe);
 
         // Enhanced atmospheric glow
         const atmosphereGeometry = new THREE.SphereGeometry(53, 32, 32);
@@ -390,29 +489,23 @@ export class Visualization {
     }
 
     setupLighting() {
-        // Ambient light for space atmosphere
-        const ambientLight = new THREE.AmbientLight(0x1a1a2e, 0.3);
+        // Realistic sun lighting setup
+        
+        // Very low ambient light (space is mostly dark except for starlight)
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.15);
         this.scene.add(ambientLight);
 
-        // Main directional light (sun-like)
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(100, 100, 50);
-        directionalLight.castShadow = false; // Disable shadows for performance
-        this.scene.add(directionalLight);
+        // Main directional light representing the Sun
+        // Position to illuminate Hawaii/Pacific region and US (matching reference image)
+        this.sunLight = new THREE.DirectionalLight(0xffeaa7, 1.2); // Warm sunlight color
+        this.sunLight.position.set(-100, 80, 120); // Sun positioned to light Pacific/Hawaii region
+        this.sunLight.castShadow = false; // Disable for performance
+        this.scene.add(this.sunLight);
 
-        // HTW brand accent lights
-        const cyanLight = new THREE.PointLight(this.brandColors.primary, 0.6, 150);
-        cyanLight.position.set(-80, 60, 80);
-        this.scene.add(cyanLight);
-
-        const blueLight = new THREE.PointLight(this.brandColors.techBlue, 0.4, 120);
-        blueLight.position.set(80, -60, -80);
-        this.scene.add(blueLight);
-
-        // Subtle rim lighting for atmosphere
-        const rimLight = new THREE.DirectionalLight(this.brandColors.primary, 0.3);
-        rimLight.position.set(-50, 0, -100);
-        this.scene.add(rimLight);
+        // Very subtle fill light for the dark side (reflected earthshine/moonlight)
+        const fillLight = new THREE.DirectionalLight(0x81ecec, 0.08); // Cool blue fill
+        fillLight.position.set(-100, -20, -50); // Opposite side of sun
+        this.scene.add(fillLight);
     }
 
     setupBackground() {
@@ -449,8 +542,8 @@ export class Visualization {
         this.controls.enableRotate = true;
         this.controls.enablePan = true;
         
-        // Set limits for better UX - allow closer zoom for Hawaii detail
-        this.controls.minDistance = 30;  // Allow much closer zoom for Hawaii clusters
+        // Set limits for better UX - prevent camera from going inside planet
+        this.controls.minDistance = 65;  // Safe distance above globe surface (radius 50) + atmosphere (radius 53)
         this.controls.maxDistance = 300; // Prevent zooming too far
         this.controls.maxPolarAngle = Math.PI; // Allow full vertical rotation
         
@@ -619,6 +712,12 @@ export class Visualization {
             console.error('❌ NO DATA POINTS ADDED TO SCENE!');
         }
         
+        // Create network connections to Hawaii
+        this.createHawaiiConnections(data);
+        
+        // Update footer statistics
+        this.updateFooterStats(data);
+        
         this.updatePerformanceStats();
     }
 
@@ -689,10 +788,139 @@ export class Visualization {
         // Clear the group (should already be empty, but just to be sure)
         this.dataPoints.clear();
         
+        // Also clear connections
+        const existingConnections = [...this.connections.children];
+        existingConnections.forEach(connection => {
+            this.connections.remove(connection);
+            if (connection.geometry) connection.geometry.dispose();
+            if (connection.material) connection.material.dispose();
+        });
+        this.connections.clear();
+        
         // Force garbage collection hint
         if (window.gc) {
             window.gc();
         }
+    }
+
+    createHawaiiConnections(data) {
+        // Clear existing connections
+        const existingConnections = [...this.connections.children];
+        existingConnections.forEach(connection => {
+            this.connections.remove(connection);
+            if (connection.geometry) connection.geometry.dispose();
+            if (connection.material) connection.material.dispose();
+        });
+        this.connections.clear();
+
+        // Hawaii center position
+        const hawaiiPosition = this.latLngToVector3(
+            this.hawaiiCenter.lat, 
+            this.hawaiiCenter.lng, 
+            50.5
+        );
+
+        // Filter for non-Hawaii data points
+        const nonHawaiiPoints = data.filter(dataPoint => {
+            if (!dataPoint.coordinates) return false;
+            
+            // Check if this is a Hawaii location (state is HI)
+            const isHawaiiLocation = dataPoint.state === 'HI' || 
+                (dataPoint.country === 'USA' && dataPoint.city && 
+                 dataPoint.city.toLowerCase().includes('honolulu'));
+            
+            return !isHawaiiLocation;
+        });
+
+        console.log(`Creating ${nonHawaiiPoints.length} connections to Hawaii center`);
+
+        // Create connections for each non-Hawaii point
+        nonHawaiiPoints.forEach((dataPoint, index) => {
+            const pointPosition = this.latLngToVector3(
+                dataPoint.coordinates.lat, 
+                dataPoint.coordinates.lng, 
+                50.5
+            );
+
+            // Create curved line between point and Hawaii
+            const connectionLine = this.createConnectionLine(pointPosition, hawaiiPosition, index);
+            if (connectionLine) {
+                this.connections.add(connectionLine);
+            }
+        });
+    }
+
+    createConnectionLine(startPos, endPos, index = 0) {
+        // Create curved path between two points on sphere
+        const curve = this.createCurvedPath(startPos, endPos);
+        
+        // Create line geometry from curve
+        const points = curve.getPoints(20); // 20 segments for smooth curve
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+        // Create vibrant connection material with HTW brand colors
+        const material = new THREE.LineBasicMaterial({ 
+            color: 0x10B981, // HTW accent green - more vibrant than current
+            transparent: true,
+            opacity: 0.7, // Increased from 0.3 for better visibility
+            linewidth: 3 // Increased from 1 for thicker lines
+        });
+
+        // Create the line mesh
+        const line = new THREE.Line(geometry, material);
+        
+        // Add slight animation delay based on index
+        line.userData = {
+            animationDelay: index * 50, // 50ms delay per connection
+            originalOpacity: 0.7, // Updated to match new material opacity
+            type: 'connection'
+        };
+
+        return line;
+    }
+
+    createCurvedPath(startPos, endPos) {
+        // Create a proper geodesic arc that follows Earth's curvature
+        const points = [];
+        const segments = 20;
+        const globeRadius = 50; // Base globe radius
+        const arcHeight = 8; // Additional height for the arc
+        
+        // Normalize start and end positions to sphere surface
+        const start = startPos.clone().normalize().multiplyScalar(globeRadius);
+        const end = endPos.clone().normalize().multiplyScalar(globeRadius);
+        
+        // Calculate great circle arc using spherical interpolation
+        for (let i = 0; i <= segments; i++) {
+            const t = i / segments;
+            
+            // Spherical linear interpolation (slerp)
+            const angle = start.angleTo(end);
+            const sinAngle = Math.sin(angle);
+            
+            let point;
+            if (sinAngle < 0.001) {
+                // Points are very close, use linear interpolation
+                point = start.clone().lerp(end, t);
+            } else {
+                // Use proper spherical interpolation
+                const a = Math.sin((1 - t) * angle) / sinAngle;
+                const b = Math.sin(t * angle) / sinAngle;
+                
+                point = start.clone().multiplyScalar(a).add(end.clone().multiplyScalar(b));
+            }
+            
+            // Add arc height (highest in the middle)
+            const heightFactor = 1 + (Math.sin(t * Math.PI) * (arcHeight / globeRadius));
+            point.normalize().multiplyScalar(globeRadius * heightFactor);
+            
+            points.push(point);
+        }
+        
+        // Create a custom curve from the calculated points
+        return {
+            getPoints: (segments) => points
+        };
     }
 
     // Update visualization with new data (optimized for frequent updates)
@@ -747,6 +975,73 @@ export class Visualization {
             this.performanceStats.lastTime = now;
             this.performanceStats.drawCalls = this.dataPoints.children.length;
         }
+    }
+
+    // Update footer statistics display
+    updateFooterStats(data) {
+        if (!data || !Array.isArray(data)) return;
+        
+        // Count total members and active clusters from the actual data
+        let totalMembers = 0;
+        let activeClusters = 0;
+        
+        data.forEach(dataPoint => {
+            if (dataPoint.isCluster && dataPoint.memberCount > 1) {
+                // This is a cluster, count all its members
+                totalMembers += dataPoint.memberCount;
+                activeClusters++;
+            } else {
+                // This is an individual point
+                totalMembers++;
+            }
+        });
+        
+        // Update the footer display elements
+        const totalMembersEl = document.getElementById('total-members');
+        const activeClustersEl = document.getElementById('active-clusters');
+        
+        if (totalMembersEl) {
+            totalMembersEl.textContent = totalMembers.toLocaleString();
+        }
+        if (activeClustersEl) {
+            activeClustersEl.textContent = activeClusters.toLocaleString();
+        }
+        
+        console.log(`📊 Footer stats updated: ${totalMembers} total members, ${activeClusters} active clusters`);
+    }
+
+    // Update footer stats based on current scene state (for post-expansion updates)
+    updateFooterStatsFromScene() {
+        let totalMembers = 0;
+        let activeClusters = 0;
+        
+        // Count from scene objects
+        this.scene.children.forEach(child => {
+            if (child.userData) {
+                if (child.userData.type === 'cluster') {
+                    activeClusters++;
+                    // Add cluster member count if available
+                    if (child.userData.memberCount) {
+                        totalMembers += child.userData.memberCount;
+                    }
+                } else if (child.userData.type === 'member' || child.userData.type === 'dataPoint') {
+                    totalMembers++;
+                }
+            }
+        });
+        
+        // Update the footer display elements
+        const totalMembersEl = document.getElementById('total-members');
+        const activeClustersEl = document.getElementById('active-clusters');
+        
+        if (totalMembersEl) {
+            totalMembersEl.textContent = totalMembers.toLocaleString();
+        }
+        if (activeClustersEl) {
+            activeClustersEl.textContent = activeClusters.toLocaleString();
+        }
+        
+        console.log(`📊 Scene-based stats updated: ${totalMembers} total members, ${activeClusters} active clusters`);
     }
 
     // Get current performance metrics
@@ -862,7 +1157,7 @@ export class Visualization {
             this.createExpandedClusterMembers(clusterData, clusterPosition);
             
             // Animate camera to zoom into the cluster area
-            this.focusOnCluster(clusterData, 40); // Zoom even closer to see individual members
+            this.focusOnCluster(clusterData, 75); // Zoom closer than default but stay above surface
             
             // Show immediate feedback
             this.showClusterExpansionFeedback(clusterData);
@@ -870,6 +1165,9 @@ export class Visualization {
             // Mark this cluster as expanded to prevent re-clustering
             this.expandedClusters = this.expandedClusters || new Set();
             this.expandedClusters.add(clusterData.id);
+            
+            // Update footer stats after expansion
+            this.updateFooterStatsFromScene();
             
         } else {
             // Fallback for clusters without proper member data
@@ -971,6 +1269,9 @@ export class Visualization {
         
         // Update camera to focus on expanded area
         this.focusOnClusterArea(clusterPosition);
+        
+        // Update footer stats after legacy expansion
+        this.updateFooterStatsFromScene();
         
         // Dispatch cluster expansion event for footer stats update
         document.dispatchEvent(new CustomEvent('clusterExpanded', {
@@ -1131,6 +1432,8 @@ export class Visualization {
     
     focusOnClusterArea(position) {
         // Smoothly move camera to focus on the expanded cluster area
+        // Use a safe distance well above the globe surface (radius 50) + atmosphere (radius 53)
+        // Set distance to 80 to provide closer viewing while staying safely above planet
         const targetPosition = position.clone().normalize().multiplyScalar(80);
         const currentPosition = this.camera.position.clone();
         
@@ -1144,6 +1447,13 @@ export class Visualization {
             const easeInOut = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
             
             this.camera.position.lerpVectors(currentPosition, targetPosition, easeInOut);
+            
+            // Ensure camera doesn't go inside the planet
+            const distanceFromCenter = this.camera.position.length();
+            if (distanceFromCenter < 65) {
+                this.camera.position.normalize().multiplyScalar(65);
+            }
+            
             this.camera.lookAt(0, 0, 0);
             
             if (progress < 1) {
@@ -1372,10 +1682,46 @@ export class Visualization {
             }
         });
         
-        // Animate globe rotation (very slow)
-        if (this.globe) {
-            this.globe.rotation.y += 0.0005;
+        // Animate connection lines
+        this.connections.children.forEach((connection, index) => {
+            if (connection.userData.type === 'connection') {
+                // Subtle opacity animation
+                const pulseOpacity = connection.userData.originalOpacity + 
+                    Math.sin(time * 2 + index * 0.5) * 0.1;
+                connection.material.opacity = Math.max(0.1, pulseOpacity);
+                
+                // Adjust opacity based on camera distance
+                const cameraDistance = this.camera.position.length();
+                const distanceFactor = Math.max(0.2, Math.min(1, (200 - cameraDistance) / 150));
+                connection.material.opacity *= distanceFactor;
+                
+                // Color shift for visual interest
+                const hue = (time * 0.1 + index * 0.1) % 1;
+                connection.material.color.setHSL(0.5 + hue * 0.2, 0.8, 0.6);
+            }
+        });
+        
+        // Realistic sun movement for day/night cycles (centered on Pacific/Hawaii view)
+        if (this.sunLight) {
+            // Very slow sun movement - complete cycle every ~2 minutes (realistic for demo)
+            const sunAngle = time * 0.0008; // Slow rotation
+            const sunDistance = 150;
+            // Center sun movement around Pacific-focused lighting position
+            const baseX = -100;
+            const baseY = 80;
+            const baseZ = 120;
+            this.sunLight.position.x = baseX + Math.cos(sunAngle) * 60;
+            this.sunLight.position.y = baseY + Math.sin(sunAngle * 0.3) * 30; // Slight vertical movement
+            this.sunLight.position.z = baseZ + Math.sin(sunAngle) * 60;
+            
+            // Update shader uniforms for inverted texture material
+            if (this.globe && this.globe.material && this.globe.material.uniforms) {
+                this.globe.material.uniforms.lightDirection.value = this.sunLight.position.clone().normalize();
+            }
         }
+        
+        // Globe rotation is now controlled by user interaction via OrbitControls
+        // Removed auto-rotation to keep data points aligned with geographic features
         
         // Update atmospheric glow animation
         this.scene.children.forEach(child => {
@@ -1457,7 +1803,7 @@ export class Visualization {
     }
 
     // Animate camera to focus on a specific point or cluster
-    focusOnCluster(clusterData, zoomLevel = 80) {
+    focusOnCluster(clusterData, zoomLevel = 75) {
         if (!clusterData.coordinates) return;
         
         const targetLookAt = this.latLngToVector3(
@@ -1498,6 +1844,12 @@ export class Visualization {
             // Interpolate camera position
             this.camera.position.lerpVectors(startPosition, targetPosition, easedProgress);
             
+            // Ensure camera doesn't go inside the planet
+            const distanceFromCenter = this.camera.position.length();
+            if (distanceFromCenter < 65) {
+                this.camera.position.normalize().multiplyScalar(65);
+            }
+            
             // Interpolate look-at target
             const currentLookAt = new THREE.Vector3().lerpVectors(startLookAt, targetLookAt, easedProgress);
             this.controls.target.copy(currentLookAt);
@@ -1512,8 +1864,14 @@ export class Visualization {
     }
 
     resetCamera() {
-        this.camera.position.set(0, 0, 100);
-        this.camera.lookAt(0, 0, 0);
+        // Animate back to the default Hawaii-centered view
+        const defaultPosition = new THREE.Vector3(-90, 25, 45);
+        const defaultTarget = new THREE.Vector3(0, 0, 0);
+        
+        // Smooth animation back to default position
+        this.animateCameraTo(defaultPosition, defaultTarget, 1500);
+        
+        console.log('🏠 Camera reset to Hawaii-centered default view');
     }
 
     setAutoRotate(enabled) {
