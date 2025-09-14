@@ -9,9 +9,213 @@
     <title>HTW Community 3D Visualization</title>
     <meta name="description" content="Interactive 3D visualization of the HTW Community network">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
+    <!-- HTW Brand Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Map Page Navigation Styles -->
+    <style>
+        /* Navigation styles for map page */
+        .map-nav-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(0, 20, 40, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            transition: all 0.3s ease;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        .map-nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .map-nav-brand {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+        
+        .map-brand-text {
+            font-family: 'IBM Plex Sans Condensed', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #00D4FF;
+            letter-spacing: -0.02em;
+            text-decoration: none;
+            transition: opacity 0.2s ease;
+        }
+        
+        .map-brand-text:hover {
+            opacity: 0.8;
+        }
+        
+        .map-brand-subtitle {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: rgba(0, 212, 255, 0.7);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .map-nav-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .map-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        .map-nav-link:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.5);
+            color: #00D4FF;
+            transform: translateY(-1px);
+        }
+        
+        .map-nav-icon {
+            font-size: 1rem;
+        }
+        
+        .map-controls-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            background: none;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+        
+        .map-controls-toggle:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.5);
+            color: #00D4FF;
+            transform: translateY(-1px);
+        }
+        
+        .map-controls-toggle.active {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00D4FF;
+            color: #00D4FF;
+        }
+        
+        /* Adjust main content to account for header */
+        #app {
+            padding-top: 60px;
+        }
+        
+        /* Ensure loading screen covers the full viewport */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+        }
+        
+        /* Ensure visualization container accounts for header */
+        #visualization-container {
+            position: relative;
+            height: calc(100vh - 60px);
+        }
+        
+        /* Hide the original controls toggle since it's now in the nav */
+        .controls-toggle {
+            display: none;
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .map-nav-container {
+                padding: 0.5rem 1rem;
+            }
+            
+            .map-brand-text {
+                font-size: 1.25rem;
+            }
+            
+            .map-brand-subtitle {
+                display: none;
+            }
+            
+            .map-back-text {
+                display: none;
+            }
+            
+            .map-controls-text {
+                display: none;
+            }
+            
+            .map-nav-link,
+            .map-controls-toggle {
+                padding: 0.5rem;
+                min-width: 40px;
+                justify-content: center;
+            }
+            
+            #app {
+                padding-top: 50px;
+            }
+            
+            #visualization-container {
+                height: calc(100vh - 50px);
+            }
+        }
+    </style>
 </head>
 <body>
     <div id="app">
+        <!-- Navigation Header -->
+        <nav class="map-nav-header">
+            <div class="map-nav-container">
+                <div class="map-nav-brand">
+                    <a href="/" class="map-brand-text">HTW 2025</a>
+                    <span class="map-brand-subtitle">Network Dashboard</span>
+                </div>
+                <div class="map-nav-actions">
+                    <!-- <a href="/" class="map-nav-link map-back-link">
+                        <span class="map-nav-icon">←</span>
+                        <span class="map-back-text">Dashboard</span>
+                    </a> -->
+                    <button class="map-controls-toggle" id="map-controls-toggle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <span class="map-controls-text">Controls</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
         <!-- Loading screen -->
         <div id="loading-screen">
             <div class="loading-content">
@@ -29,11 +233,11 @@
         </div>
 
         <!-- UI Controls Sidebar -->
-        <div class="controls-toggle" id="controls-toggle">
+        <!-- <div class="controls-toggle" id="controls-toggle">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
-        </div>
+        </div> -->
         
         <div class="controls-sidebar" id="controls-sidebar">
             <div class="filter-section">
@@ -110,5 +314,30 @@
             </div>
         </div>
     </div>
+    
+    <script>
+        // Handle map controls toggle in navigation
+        document.addEventListener('DOMContentLoaded', function() {
+            const mapControlsToggle = document.getElementById('map-controls-toggle');
+            const controlsSidebar = document.getElementById('controls-sidebar');
+            
+            if (mapControlsToggle && controlsSidebar) {
+                mapControlsToggle.addEventListener('click', function() {
+                    controlsSidebar.classList.toggle('open');
+                    mapControlsToggle.classList.toggle('active');
+                });
+                
+                // Close sidebar when clicking outside
+                document.addEventListener('click', function(event) {
+                    if (!controlsSidebar.contains(event.target) && 
+                        !mapControlsToggle.contains(event.target) && 
+                        controlsSidebar.classList.contains('open')) {
+                        controlsSidebar.classList.remove('open');
+                        mapControlsToggle.classList.remove('active');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

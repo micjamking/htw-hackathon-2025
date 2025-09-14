@@ -428,13 +428,18 @@ body {
 
 .card-chart {
     height: 200px;
-    background: var(--htw-soft-blue);
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--htw-medium-blue);
-    font-style: italic;
+    overflow: hidden;
+    position: relative;
+}
+
+.card-chart svg {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
 }
 
 .insight-callout {
